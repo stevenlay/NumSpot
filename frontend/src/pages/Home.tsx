@@ -46,7 +46,7 @@ export default function Home() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-4xl font-extrabold tracking-tight">
-            <span className="text-emerald-500">Num</span><span className="text-lime-400">Spot</span>
+            <span className="text-foreground">Num</span><span className="text-blue-500">Spot</span>
           </CardTitle>
           <CardDescription>spot the number. win the round.</CardDescription>
         </CardHeader>
@@ -89,34 +89,27 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant={mode === 'create' ? 'default' : 'secondary'}
-                className="flex-1"
-                onClick={() => {
-                  resetError()
-                  setMode(mode === 'create' ? null : 'create')
-                }}
-              >
-                Create Room
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'join' ? 'default' : 'secondary'}
-                className="flex-1"
-                onClick={() => {
-                  resetError()
-                  setMode(mode === 'join' ? null : 'join')
-                }}
-              >
-                Join Room
-              </Button>
+            <div className="flex bg-muted rounded-lg p-1 gap-1">
+              {(['create', 'join'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => { resetError(); setMode(mode === m ? null : m) }}
+                  className={cn(
+                    'flex-1 py-2 rounded-md text-sm font-medium transition-colors',
+                    mode === m
+                      ? 'bg-blue-500 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {m === 'create' ? 'Create Room' : 'Join Room'}
+                </button>
+              ))}
             </div>
 
             {mode && (
-              <Button type="submit" size="lg" className="w-full">
-                {mode === 'create' ? 'Create & Enter Lobby' : 'Join Room'}
+              <Button type="submit" size="lg" className="w-full bg-blue-700 hover:bg-blue-800 text-white">
+                {mode === 'create' ? 'Create & Enter Lobby' : 'Enter Room'}
               </Button>
             )}
           </form>
