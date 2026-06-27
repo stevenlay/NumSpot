@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import NumberCard from '../components/game/NumberCard'
@@ -20,6 +20,7 @@ export default function Game() {
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [claimSent, setClaimSent] = useState(false)
 
   const myPlayer = players.find((p) => p.id === playerId)
   const myCard = myPlayer?.card ?? []
@@ -47,6 +48,22 @@ export default function Game() {
       navigate('/', { replace: true })
     }
   }, [phase, navigate])
+
+  useEffect(() => {
+    if (lastClaim !== null) {
+      const delay = lastClaim.correct ? 2000 : 1500
+      const timer = setTimeout(() => setClaimSent(false), delay)
+      return () => clearTimeout(timer)
+    }
+  }, [lastClaim])
+
+  const handleClaim = (symbol: number) => {
+    if (claimSent) return
+    setClaimSent(true)
+    claim(symbol)
+    // Safety reset for rejected claims (no server response sent back)
+    setTimeout(() => setClaimSent(false), 2000)
+  }
 
   const highlightNum = lastClaim?.correct ? lastClaim.symbol : null
 
@@ -127,41 +144,54 @@ export default function Game() {
         </div>
       )}
 
-      <div className="flex flex-col items-center gap-4 p-4 max-w-lg mx-auto w-full">
-        <div className="w-full flex items-center justify-between pt-2">
-          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
-            <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
-              Leave
-            </Button>
+      {/* Header */}
+      <div className="w-full flex items-center justify-between px-6 py-3 border-b border-border">
+        <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
+          <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
+            Leave
+          </Button>
+        </div>
+      </div>
+
+      {/* Body: sidebar + main */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Left sidebar — hidden on small screens */}
+        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col">
+          <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
+          <div className="w-full max-w-md flex flex-col gap-4">
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
+              <span className="shrink-0">💡</span>
+              <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+            </div>
+
+            <div className="flex flex-col gap-10 pt-16">
+              <NumberCard
+                key={centerCard.join(',')}
+                numbers={centerCard}
+                label="Center Card"
+                highlightNumber={highlightNum}
+                clickable={false}
+                className="w-full animate-card-in"
+              />
+
+              <NumberCard
+                numbers={myCard}
+                label="Your Card — tap the matching number!"
+                onClaim={handleClaim}
+                clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
+                highlightNumber={highlightNum}
+                className="w-full"
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="w-full flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
-          <span className="shrink-0">💡</span>
-          <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
-        </div>
-
-        <Scoreboard players={players} currentPlayerId={playerId} className="w-full" />
-
-        <NumberCard
-          key={centerCard.join(',')}
-          numbers={centerCard}
-          label="Center Card"
-          highlightNumber={highlightNum}
-          clickable={false}
-          className="w-full animate-card-in"
-        />
-
-        <NumberCard
-          numbers={myCard}
-          label="Your Card — tap the matching number!"
-          onClaim={claim}
-          clickable={countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
-          highlightNumber={highlightNum}
-          className="w-full"
-        />
+        </main>
 
       </div>
     </div>

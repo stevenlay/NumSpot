@@ -199,25 +199,13 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	r.claimLockedUntil = now.Add(correctClaimLockDuration)
 	p.Score++
 
-	// Deal new card to player
+	// Player inherits the center card; advance center from deck
+	p.Card = r.CenterCard
 	if len(r.Deck) > 0 {
-		p.Card = r.Deck[0]
+		r.CenterCard = r.Deck[0]
 		r.Deck = r.Deck[1:]
 	} else {
-		// No cards left for player
-		p.Card = []int{}
 		r.State = StateFinished
-	}
-
-	// Advance center card
-	if r.State != StateFinished {
-		if len(r.Deck) > 0 {
-			r.CenterCard = r.Deck[0]
-			r.Deck = r.Deck[1:]
-		} else {
-			// No center card left
-			r.State = StateFinished
-		}
 	}
 
 	gameOver := r.State == StateFinished

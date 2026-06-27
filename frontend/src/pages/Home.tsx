@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { Button } from '@/components/ui/button'
@@ -20,9 +20,11 @@ export default function Home() {
   const navigate = useNavigate()
   const phase = useGameStore((s) => s.phase)
 
-  if (phase === 'lobby') {
-    navigate('/lobby', { replace: true })
-  }
+  useEffect(() => {
+    if (phase === 'lobby') {
+      navigate('/lobby', { replace: true })
+    }
+  }, [phase, navigate])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()

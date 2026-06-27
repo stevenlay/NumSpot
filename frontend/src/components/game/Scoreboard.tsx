@@ -6,11 +6,42 @@ interface ScoreboardProps {
   players: Player[]
   currentPlayerId: string
   className?: string
+  layout?: 'horizontal' | 'vertical'
 }
 
-export default function Scoreboard({ players, currentPlayerId, className }: ScoreboardProps) {
+export default function Scoreboard({ players, currentPlayerId, className, layout = 'horizontal' }: ScoreboardProps) {
   const sorted = [...players].sort((a, b) => b.score - a.score)
   const maxScore = sorted[0]?.score ?? 0
+
+  if (layout === 'vertical') {
+    return (
+      <div className={cn('w-full', className)}>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Scores</h2>
+        <div className="flex flex-col gap-1.5">
+          {sorted.map((p, i) => {
+            const isLeader = p.score === maxScore && maxScore > 0
+            const isYou = p.id === currentPlayerId
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  'flex items-center justify-between px-3 py-2 rounded-lg text-sm',
+                  isLeader ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' : 'bg-muted/50 text-foreground',
+                  isYou && 'ring-2 ring-primary ring-offset-1',
+                )}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span>{i === 0 && isLeader ? '🏆' : `${i + 1}.`}</span>
+                  <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
+                </div>
+                <span className="font-bold shrink-0 ml-2">{p.score}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={cn('w-full', className)}>

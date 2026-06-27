@@ -80,7 +80,7 @@ function handleMessage(
         lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
         players: p.players ?? get().players,
-        deckSize: p.deck_size ?? get().deckSize,
+        deckSize: p.correct ? p.deck_size : get().deckSize,
       }), p.correct ? 2000 : 1500)
       break
     }
