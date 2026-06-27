@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numspot-backend
+  labels:
+    app: numspot-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: numspot-backend
+  template:
+    metadata:
+      labels:
+        app: numspot-backend
+    spec:
+      containers:
+        - name: backend
+          image: numspot/backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: GIN_MODE
+              value: release
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30

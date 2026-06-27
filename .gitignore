@@ -1,0 +1,43 @@
+# Go
+backend/server
+backend/*.exe
+*.test
+*.out
+vendor/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Vite
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build artifacts
+dist/
+build/
+out/

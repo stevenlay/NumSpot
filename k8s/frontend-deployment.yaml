@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: numspot-frontend
+  labels:
+    app: numspot-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: numspot-frontend
+  template:
+    metadata:
+      labels:
+        app: numspot-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: numspot/frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
