@@ -76,7 +76,7 @@ function handleMessage(
         centerCard: p.center_card ?? get().centerCard,
         players: p.players ?? get().players,
         deckSize: p.deck_size ?? get().deckSize,
-      }), p.correct ? 3000 : 1500)
+      }), p.correct ? 2000 : 1500)
       break
     }
     case 'game_over': {

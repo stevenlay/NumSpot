@@ -24,7 +24,7 @@ type Client interface {
 
 const (
 	wrongClaimPenalty  = 1500 * time.Millisecond
-	correctClaimLockDuration = 3000 * time.Millisecond
+	correctClaimLockDuration = 2000 * time.Millisecond
 )
 
 type Player struct {

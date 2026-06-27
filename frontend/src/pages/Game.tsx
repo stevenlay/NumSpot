@@ -103,7 +103,7 @@ export default function Game() {
             'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-bold text-white text-sm',
             lastClaim?.correct ? 'bg-green-500' : 'bg-red-500'
           )}
-          style={{ animation: `toast-out ${lastClaim?.correct ? '3s' : '1.5s'} ease-in forwards` }}
+          style={{ animation: `toast-out ${lastClaim?.correct ? '2s' : '1.5s'} ease-in forwards` }}
         >
           {toastText}
         </div>
