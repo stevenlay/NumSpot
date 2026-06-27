@@ -23,7 +23,7 @@ export default function NumberCard({
       {label && (
         <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
       )}
-      <Card className="p-4 w-full max-w-sm">
+      <Card className={cn('p-4 w-full max-w-sm', !clickable && 'bg-muted/40 opacity-60')}>
         <div className="grid grid-cols-4 gap-2">
           {numbers.map((n) => {
             const isHighlight = highlightNumber === n
@@ -39,7 +39,9 @@ export default function NumberCard({
                     : 'cursor-default',
                   isHighlight
                     ? 'bg-green-400 text-white scale-110 shadow-md animate-flash'
-                    : 'bg-muted text-foreground',
+                    : clickable
+                      ? 'bg-muted text-foreground'
+                      : 'bg-background border-2 border-border text-muted-foreground shadow-sm',
                 )}
               >
                 {n}

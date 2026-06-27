@@ -23,14 +23,15 @@ export default function Game() {
   const myCard = myPlayer?.card ?? []
 
   const showToast = lastClaim !== null
+  const claimantName = lastClaim ? (players.find((p) => p.id === lastClaim.playerId)?.name ?? 'Someone') : ''
   const toastText = lastClaim
     ? lastClaim.correct
       ? lastClaim.playerId === playerId
         ? '✓ Correct! +1'
-        : `${players.find((p) => p.id === lastClaim.playerId)?.name ?? 'Someone'} got it!`
+        : `${claimantName} got it!`
       : lastClaim.playerId === playerId
         ? '✗ Wrong number!'
-        : null
+        : `${claimantName} missed!`
     : null
 
   useEffect(() => {
@@ -114,11 +115,12 @@ export default function Game() {
           </Button>
         </div>
 
-        <Scoreboard players={players} currentPlayerId={playerId} className="w-full" />
+        <div className="w-full flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
+          <span className="shrink-0">💡</span>
+          <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+        </div>
 
-        <p className="text-xs text-muted-foreground text-center">
-          Find the one number shared between your card and the center card, then tap it to claim!
-        </p>
+        <Scoreboard players={players} currentPlayerId={playerId} className="w-full" />
 
         <NumberCard
           numbers={centerCard}
