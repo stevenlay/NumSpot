@@ -68,9 +68,6 @@ export default function Lobby() {
               <Button onClick={startGame} size="lg" className="w-full">
                 Start Game
               </Button>
-              {players.length === 1 && (
-                <p className="text-center text-xs text-muted-foreground">Playing solo — invite friends to join!</p>
-              )}
             </div>
           ) : null}
         </CardContent>
