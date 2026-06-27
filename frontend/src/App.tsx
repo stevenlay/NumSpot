@@ -21,7 +21,7 @@ export default function App() {
         <Route
           path="/lobby"
           element={
-            <RequirePhase phase="lobby">
+            <RequirePhase phase={['lobby', 'playing', 'finished']}>
               <Lobby />
             </RequirePhase>
           }
