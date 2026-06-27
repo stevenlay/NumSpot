@@ -12,6 +12,7 @@ export default function Home() {
   const [name, setName] = useState('')
   const [mode, setMode] = useState<'create' | 'join' | null>(null)
   const [roomCode, setRoomCode] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; roomCode?: string }>({})
   const connect = useGameStore((s) => s.connect)
   const error = useGameStore((s) => s.error)
   const resetError = useGameStore((s) => s.resetError)
@@ -25,9 +26,15 @@ export default function Home() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     resetError()
-    if (!name.trim()) return
+    const errors: { name?: string; roomCode?: string } = {}
+    if (!name.trim()) errors.name = 'Please enter your name.'
+    if (mode === 'join' && !roomCode.trim()) errors.roomCode = 'Please enter a room code.'
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+    setFieldErrors({})
     if (mode === 'join') {
-      if (!roomCode.trim()) return
       connect(name.trim(), roomCode.trim().toUpperCase())
     } else {
       connect(name.trim())
@@ -35,11 +42,13 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-4xl font-extrabold text-primary tracking-tight">NumSpot</CardTitle>
-          <CardDescription>The multiplayer number spotting game</CardDescription>
+          <CardTitle className="text-4xl font-extrabold tracking-tight">
+            <span className="text-emerald-500">Num</span><span className="text-lime-400">Spot</span>
+          </CardTitle>
+          <CardDescription>spot the number. win the round.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {error && (
@@ -54,11 +63,13 @@ export default function Home() {
                 id="name"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setFieldErrors((fe) => ({ ...fe, name: undefined })) }}
                 placeholder="Enter your name"
                 maxLength={24}
-                required
+                aria-invalid={!!fieldErrors.name}
+                className={cn(fieldErrors.name && 'border-destructive focus-visible:ring-destructive')}
               />
+              {fieldErrors.name && <p className="text-sm text-destructive">{fieldErrors.name}</p>}
             </div>
 
             {mode === 'join' && (
@@ -68,12 +79,13 @@ export default function Home() {
                   id="roomCode"
                   type="text"
                   value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  onChange={(e) => { setRoomCode(e.target.value.toUpperCase()); setFieldErrors((fe) => ({ ...fe, roomCode: undefined })) }}
                   placeholder="e.g. ABC123"
                   maxLength={6}
-                  className="uppercase tracking-widest"
-                  required
+                  className={cn('uppercase tracking-widest', fieldErrors.roomCode && 'border-destructive focus-visible:ring-destructive')}
+                  aria-invalid={!!fieldErrors.roomCode}
                 />
+                {fieldErrors.roomCode && <p className="text-sm text-destructive">{fieldErrors.roomCode}</p>}
               </div>
             )}
 
@@ -92,7 +104,7 @@ export default function Home() {
               <Button
                 type="button"
                 variant={mode === 'join' ? 'default' : 'secondary'}
-                className={cn('flex-1', mode === 'join' && 'bg-purple-600 hover:bg-purple-700 text-white')}
+                className="flex-1"
                 onClick={() => {
                   resetError()
                   setMode(mode === 'join' ? null : 'join')
@@ -111,7 +123,7 @@ export default function Home() {
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-xs text-muted-foreground text-center">
-            Find the matching number between your card and the center card — first to claim it wins the round!
+            Find the matching number between your card and the center card.
           </p>
         </CardFooter>
       </Card>

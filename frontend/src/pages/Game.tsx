@@ -49,7 +49,7 @@ export default function Game() {
 
   if (phase === 'finished') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md shadow-lg text-center">
           <CardHeader>
             <div className="text-5xl mb-2">🎉</div>
@@ -94,7 +94,7 @@ export default function Game() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {showToast && toastText && (
         <div
           className={cn(
@@ -108,7 +108,7 @@ export default function Game() {
 
       <div className="flex flex-col items-center gap-4 p-4 max-w-lg mx-auto w-full">
         <div className="w-full flex items-center justify-between pt-2">
-          <h1 className="text-xl font-extrabold text-primary">NumSpot</h1>
+          <h1 className="text-xl font-extrabold"><span className="text-emerald-500">Num</span><span className="text-lime-400">Spot</span></h1>
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
             Leave
           </Button>
