@@ -11,7 +11,8 @@ import type {
   GameOverPayload,
 } from '../types/game'
 
-const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8080/ws`
+const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+const WS_URL = import.meta.env.VITE_WS_URL || `${proto}://${window.location.host}/ws`
 
 interface GameStore {
   phase: GamePhase
