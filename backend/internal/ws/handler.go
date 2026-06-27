@@ -279,6 +279,9 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 	}
 
 	result := room.Claim(c.ID, symbol)
+	if result.Rejected {
+		return
+	}
 
 	h.broadcast(c.RoomCode, OutboundMessage{
 		Type: MsgClaimResult,

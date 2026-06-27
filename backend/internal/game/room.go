@@ -22,23 +22,30 @@ type Client interface {
 	SendMsg(data []byte)
 }
 
+const (
+	wrongClaimPenalty  = 1500 * time.Millisecond
+	correctClaimLockDuration = 3000 * time.Millisecond
+)
+
 type Player struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Score int    `json:"score"`
-	Card  []int  `json:"card"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Score          int       `json:"score"`
+	Card           []int     `json:"card"`
+	penalizedUntil time.Time
 }
 
 type Room struct {
-	Code       string
-	HostID     string
-	Players    map[string]*Player
-	Clients    map[string]Client
-	State      GameState
-	CenterCard []int
-	Deck       [][]int
-	CreatedAt  time.Time
-	mu         sync.RWMutex
+	Code             string
+	HostID           string
+	Players          map[string]*Player
+	Clients          map[string]Client
+	State            GameState
+	CenterCard       []int
+	Deck             [][]int
+	CreatedAt        time.Time
+	claimLockedUntil time.Time
+	mu               sync.RWMutex
 }
 
 func NewRoom(code, hostID, hostName string) *Room {
@@ -150,6 +157,7 @@ func (r *Room) StartGame() error {
 // ClaimResult holds the outcome of a claim attempt.
 type ClaimResult struct {
 	Correct    bool
+	Rejected   bool // silently dropped — player is on cooldown
 	GameOver   bool
 	CenterCard []int
 	Players    []*Player
@@ -167,6 +175,11 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		return ClaimResult{Correct: false}
 	}
 
+	now := time.Now()
+	if now.Before(r.claimLockedUntil) || now.Before(p.penalizedUntil) {
+		return ClaimResult{Rejected: true}
+	}
+
 	// Convert display symbol to 0-based for FindMatch
 	symIdx := FromDisplay(symbol)
 	playerCard0 := fromDisplay(p.Card)
@@ -174,10 +187,12 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 
 	match := FindMatch(playerCard0, centerCard0)
 	if match != symIdx {
+		p.penalizedUntil = now.Add(wrongClaimPenalty)
 		return ClaimResult{Correct: false}
 	}
 
-	// Correct claim
+	// Correct claim — lock the room for all players during the transition
+	r.claimLockedUntil = now.Add(correctClaimLockDuration)
 	p.Score++
 
 	// Deal new card to player

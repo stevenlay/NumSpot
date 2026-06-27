@@ -136,7 +136,7 @@ export default function Game() {
           numbers={myCard}
           label="Your Card — tap the matching number!"
           onClaim={claim}
-          clickable={lastClaim === null}
+          clickable={lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId)}
           highlightNumber={highlightNum}
           className="w-full"
         />

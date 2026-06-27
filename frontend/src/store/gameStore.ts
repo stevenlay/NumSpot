@@ -69,12 +69,12 @@ function handleMessage(
     }
     case 'claim_result': {
       const p = msg.payload as ClaimResultPayload
-      set({
+      set({ lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct } })
+      setTimeout(() => set({
+        lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
         players: p.players ?? get().players,
-        lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct },
-      })
-      setTimeout(() => set({ lastClaim: null }), p.correct ? 3000 : 1500)
+      }), p.correct ? 3000 : 1500)
       break
     }
     case 'game_over': {
