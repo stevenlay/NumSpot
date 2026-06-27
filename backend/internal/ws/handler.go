@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +13,23 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/numspot/server/internal/game"
 )
+
+var validNameRe = regexp.MustCompile(`^[a-zA-Z0-9 '_\-.]+$`)
+
+func validateName(name string) (string, string) {
+	name = strings.TrimSpace(name)
+	switch {
+	case name == "":
+		return "", "name is required"
+	case len(name) < 2:
+		return "", "name must be at least 2 characters"
+	case len(name) > 24:
+		return "", "name must be 24 characters or fewer"
+	case !validNameRe.MatchString(name):
+		return "", "name contains invalid characters"
+	}
+	return name, ""
+}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -119,9 +138,10 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 }
 
 func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) {
-	name, _ := payload["name"].(string)
-	if name == "" {
-		h.sendError(c, "name is required")
+	rawName, _ := payload["name"].(string)
+	name, errMsg := validateName(rawName)
+	if errMsg != "" {
+		h.sendError(c, errMsg)
 		return
 	}
 
@@ -148,9 +168,14 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 
 func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	code, _ := payload["code"].(string)
-	name, _ := payload["name"].(string)
-	if code == "" || name == "" {
+	if code == "" {
 		h.sendError(c, "code and name are required")
+		return
+	}
+	rawName, _ := payload["name"].(string)
+	name, errMsg := validateName(rawName)
+	if errMsg != "" {
+		h.sendError(c, errMsg)
 		return
 	}
 

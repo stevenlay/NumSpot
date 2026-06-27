@@ -28,7 +28,11 @@ export default function Home() {
     e.preventDefault()
     resetError()
     const errors: { name?: string; roomCode?: string } = {}
-    if (!name.trim()) errors.name = 'Please enter your name.'
+    const trimmedName = name.trim()
+    if (!trimmedName) errors.name = 'Please enter your name.'
+    else if (trimmedName.length < 2) errors.name = 'Name must be at least 2 characters.'
+    else if (trimmedName.length > 24) errors.name = 'Name must be 24 characters or fewer.'
+    else if (!/^[a-zA-Z0-9 '_\-.]+$/.test(trimmedName)) errors.name = "Name can only contain letters, numbers, spaces, and - _ ' ."
     if (mode === 'join' && !roomCode.trim()) errors.roomCode = 'Please enter a room code.'
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
