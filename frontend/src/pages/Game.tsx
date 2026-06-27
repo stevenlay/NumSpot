@@ -108,7 +108,7 @@ export default function Game() {
 
       <div className="flex flex-col items-center gap-4 p-4 max-w-lg mx-auto w-full">
         <div className="w-full flex items-center justify-between pt-2">
-          <h1 className="text-xl font-extrabold"><span className="text-foreground">Num</span><span className="text-blue-500">Spot</span></h1>
+          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
             Leave
           </Button>

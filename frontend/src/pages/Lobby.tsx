@@ -28,9 +28,11 @@ export default function Lobby() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-extrabold tracking-tight">
-            <span className="text-foreground">Game </span><span className="text-blue-500">Lobby</span>
+            <span className="text-blue-500">Game Lobby</span>
           </CardTitle>
-          <CardDescription>Share the room code with friends</CardDescription>
+          <CardDescription>
+            {isHost ? 'Share the room code with friends' : 'Waiting for the host to start the game…'}
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-3">
@@ -69,11 +71,7 @@ export default function Lobby() {
               </Button>
               <p className="text-center text-xs text-muted-foreground">Need at least 2 players to start</p>
             </div>
-          ) : (
-            <div className="text-center text-muted-foreground text-sm bg-muted/50 rounded-lg py-4">
-              Waiting for the host to start the game…
-            </div>
-          )}
+          ) : null}
         </CardContent>
         <CardFooter className="justify-center">
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground">

@@ -51,7 +51,7 @@ export default function Home() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-4xl font-extrabold tracking-tight">
-            <span className="text-foreground">Num</span><span className="text-blue-500">Spot</span>
+            <span className="text-blue-500">NumSpot</span>
           </CardTitle>
           <CardDescription>spot the number. win the round.</CardDescription>
         </CardHeader>
