@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 export default function Home() {
   const [name, setName] = useState('')
-  const [mode, setMode] = useState<'create' | 'join' | null>(null)
+  const [mode, setMode] = useState<'create' | 'join'>('create')
   const [roomCode, setRoomCode] = useState('')
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; roomCode?: string }>({})
   const connect = useGameStore((s) => s.connect)
@@ -72,46 +73,33 @@ export default function Home() {
               {fieldErrors.name && <p className="text-sm text-destructive">{fieldErrors.name}</p>}
             </div>
 
-            {mode === 'join' && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="roomCode">Room Code</Label>
-                <Input
-                  id="roomCode"
-                  type="text"
-                  value={roomCode}
-                  onChange={(e) => { setRoomCode(e.target.value.toUpperCase()); setFieldErrors((fe) => ({ ...fe, roomCode: undefined })) }}
-                  placeholder="e.g. ABC123"
-                  maxLength={6}
-                  className={cn('uppercase tracking-widest', fieldErrors.roomCode && 'border-destructive focus-visible:ring-destructive')}
-                  aria-invalid={!!fieldErrors.roomCode}
-                />
-                {fieldErrors.roomCode && <p className="text-sm text-destructive">{fieldErrors.roomCode}</p>}
-              </div>
-            )}
+            <Tabs value={mode} onValueChange={(v) => { resetError(); setMode(v as 'create' | 'join') }}>
+              <TabsList className="w-full">
+                <TabsTrigger value="create" className="flex-1">Create Room</TabsTrigger>
+                <TabsTrigger value="join" className="flex-1">Join Room</TabsTrigger>
+              </TabsList>
 
-            <div className="flex bg-muted rounded-lg p-1 gap-1">
-              {(['create', 'join'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => { resetError(); setMode(mode === m ? null : m) }}
-                  className={cn(
-                    'flex-1 py-2 rounded-md text-sm font-medium transition-colors',
-                    mode === m
-                      ? 'bg-blue-500 text-white shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {m === 'create' ? 'Create Room' : 'Join Room'}
-                </button>
-              ))}
-            </div>
+              <TabsContent value="join" className="mt-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="roomCode">Room Code</Label>
+                  <Input
+                    id="roomCode"
+                    type="text"
+                    value={roomCode}
+                    onChange={(e) => { setRoomCode(e.target.value.toUpperCase()); setFieldErrors((fe) => ({ ...fe, roomCode: undefined })) }}
+                    placeholder="e.g. ABC123"
+                    maxLength={6}
+                    className={cn('uppercase tracking-widest', fieldErrors.roomCode && 'border-destructive focus-visible:ring-destructive')}
+                    aria-invalid={!!fieldErrors.roomCode}
+                  />
+                  {fieldErrors.roomCode && <p className="text-sm text-destructive">{fieldErrors.roomCode}</p>}
+                </div>
+              </TabsContent>
+            </Tabs>
 
-            {mode && (
-              <Button type="submit" size="lg" className="w-full bg-blue-700 hover:bg-blue-800 text-white">
-                {mode === 'create' ? 'Create & Enter Lobby' : 'Enter Room'}
-              </Button>
-            )}
+            <Button type="submit" size="lg" className="w-full bg-blue-700 hover:bg-blue-800 text-white">
+              {mode === 'create' ? 'Create & Enter Lobby' : 'Enter Room'}
+            </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center">
