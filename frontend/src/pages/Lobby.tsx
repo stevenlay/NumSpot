@@ -65,10 +65,12 @@ export default function Lobby() {
 
           {isHost ? (
             <div className="flex flex-col gap-2">
-              <Button onClick={startGame} disabled={players.length < 2} size="lg" className="w-full">
-                {players.length < 2 ? 'Waiting for more players…' : 'Start Game'}
+              <Button onClick={startGame} size="lg" className="w-full">
+                Start Game
               </Button>
-              <p className="text-center text-xs text-muted-foreground">Need at least 2 players to start</p>
+              {players.length === 1 && (
+                <p className="text-center text-xs text-muted-foreground">Playing solo — invite friends to join!</p>
+              )}
             </div>
           ) : null}
         </CardContent>

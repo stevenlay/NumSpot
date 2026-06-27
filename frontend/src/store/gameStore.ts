@@ -22,6 +22,7 @@ interface GameStore {
   players: Player[]
   centerCard: number[]
   deckSize: number
+  countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
   winner: Player | null
   connected: boolean
@@ -65,7 +66,11 @@ function handleMessage(
     }
     case 'game_started': {
       const p = msg.payload as GameStartedPayload
-      set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size })
+      set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3 })
+      setTimeout(() => set({ countdown: 2 }), 1000)
+      setTimeout(() => set({ countdown: 1 }), 2000)
+      setTimeout(() => set({ countdown: 0 }), 3000)
+      setTimeout(() => set({ countdown: null }), 4000)
       break
     }
     case 'claim_result': {
@@ -103,6 +108,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   players: [],
   centerCard: [],
   deckSize: 0,
+  countdown: null,
   lastClaim: null,
   winner: null,
   connected: false,
@@ -179,6 +185,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       players: [],
       centerCard: [],
       deckSize: 0,
+      countdown: null,
       lastClaim: null,
       winner: null,
       connected: false,

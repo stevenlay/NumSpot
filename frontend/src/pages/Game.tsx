@@ -16,6 +16,7 @@ export default function Game() {
   const lastClaim = useGameStore((s) => s.lastClaim)
   const winner = useGameStore((s) => s.winner)
   const deckSize = useGameStore((s) => s.deckSize)
+  const countdown = useGameStore((s) => s.countdown)
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -97,6 +98,23 @@ export default function Game() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {countdown !== null && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm">
+          <span
+            key={countdown}
+            className="text-8xl font-black text-blue-500 animate-card-in"
+          >
+            {countdown === 0 ? 'Go!' : countdown}
+          </span>
+          {countdown > 0 && (
+            <div className="flex items-center gap-3 bg-blue-50 border-2 border-blue-200 text-blue-700 rounded-xl px-6 py-4 text-base font-medium max-w-sm text-center shadow-sm">
+              <span className="shrink-0 text-2xl">💡</span>
+              <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {showToast && toastText && (
         <div
           className={cn(
@@ -140,7 +158,7 @@ export default function Game() {
           numbers={myCard}
           label="Your Card — tap the matching number!"
           onClaim={claim}
-          clickable={lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId)}
+          clickable={countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
           highlightNumber={highlightNum}
           className="w-full"
         />

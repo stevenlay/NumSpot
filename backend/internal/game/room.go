@@ -117,8 +117,8 @@ func (r *Room) StartGame() error {
 	if r.State != StateWaiting {
 		return errors.New("game already started")
 	}
-	if len(r.Players) < 2 {
-		return errors.New("need at least 2 players")
+	if len(r.Players) < 1 {
+		return errors.New("need at least 1 player")
 	}
 
 	// Generate deck
