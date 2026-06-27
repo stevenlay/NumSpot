@@ -68,6 +68,7 @@ type PlayerLeftPayload struct {
 type GameStartedPayload struct {
 	CenterCard []int          `json:"center_card"`
 	Players    []*game.Player `json:"players"`
+	DeckSize   int            `json:"deck_size"`
 }
 
 type ClaimResultPayload struct {
@@ -76,6 +77,7 @@ type ClaimResultPayload struct {
 	Correct    bool           `json:"correct"`
 	CenterCard []int          `json:"center_card"`
 	Players    []*game.Player `json:"players"`
+	DeckSize   int            `json:"deck_size"`
 }
 
 type GameOverPayload struct {

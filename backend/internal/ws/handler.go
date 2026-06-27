@@ -246,6 +246,7 @@ func (h *Handler) handleStartGame(c *WSClient) {
 	room.RLock()
 	centerCard := make([]int, len(room.CenterCard))
 	copy(centerCard, room.CenterCard)
+	deckSize := len(room.Deck)
 	room.RUnlock()
 
 	players := room.PlayerList()
@@ -255,6 +256,7 @@ func (h *Handler) handleStartGame(c *WSClient) {
 		Payload: GameStartedPayload{
 			CenterCard: centerCard,
 			Players:    players,
+			DeckSize:   deckSize,
 		},
 	})
 }
@@ -291,6 +293,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 			Correct:    result.Correct,
 			CenterCard: result.CenterCard,
 			Players:    result.Players,
+			DeckSize:   result.DeckSize,
 		},
 	})
 

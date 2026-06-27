@@ -162,6 +162,7 @@ type ClaimResult struct {
 	CenterCard []int
 	Players    []*Player
 	WinnerID   string
+	DeckSize   int
 }
 
 // Claim processes a player's claim of a symbol (1-indexed display number).
@@ -233,6 +234,7 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		CenterCard: r.CenterCard,
 		Players:    players,
 		WinnerID:   winnerID,
+		DeckSize:   len(r.Deck),
 	}
 }
 

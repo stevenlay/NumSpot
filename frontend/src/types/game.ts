@@ -48,6 +48,7 @@ export interface PlayerLeftPayload {
 export interface GameStartedPayload {
   center_card: number[]
   players: Player[]
+  deck_size: number
 }
 
 export interface ClaimResultPayload {
@@ -56,6 +57,7 @@ export interface ClaimResultPayload {
   correct: boolean
   center_card: number[]
   players: Player[]
+  deck_size: number
 }
 
 export interface GameOverPayload {

@@ -21,6 +21,7 @@ interface GameStore {
   isHost: boolean
   players: Player[]
   centerCard: number[]
+  deckSize: number
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
   winner: Player | null
   connected: boolean
@@ -64,7 +65,7 @@ function handleMessage(
     }
     case 'game_started': {
       const p = msg.payload as GameStartedPayload
-      set({ phase: 'playing', centerCard: p.center_card, players: p.players })
+      set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size })
       break
     }
     case 'claim_result': {
@@ -74,6 +75,7 @@ function handleMessage(
         lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
         players: p.players ?? get().players,
+        deckSize: p.deck_size ?? get().deckSize,
       }), p.correct ? 3000 : 1500)
       break
     }
@@ -100,6 +102,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isHost: false,
   players: [],
   centerCard: [],
+  deckSize: 0,
   lastClaim: null,
   winner: null,
   connected: false,
@@ -175,6 +178,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isHost: false,
       players: [],
       centerCard: [],
+      deckSize: 0,
       lastClaim: null,
       winner: null,
       connected: false,

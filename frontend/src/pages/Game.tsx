@@ -15,6 +15,7 @@ export default function Game() {
   const centerCard = useGameStore((s) => s.centerCard)
   const lastClaim = useGameStore((s) => s.lastClaim)
   const winner = useGameStore((s) => s.winner)
+  const deckSize = useGameStore((s) => s.deckSize)
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -111,9 +112,12 @@ export default function Game() {
       <div className="flex flex-col items-center gap-4 p-4 max-w-lg mx-auto w-full">
         <div className="w-full flex items-center justify-between pt-2">
           <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
-          <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
-            Leave
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
+            <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
+              Leave
+            </Button>
+          </div>
         </div>
 
         <div className="w-full flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
