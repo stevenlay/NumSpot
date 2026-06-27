@@ -15,7 +15,7 @@ A real-time multiplayer card-matching game. Players race to spot the one symbol 
 ### Prerequisites
 
 - Go 1.22+
-- Node.js 18+
+- Node.js 24+
 
 ### Backend (Go / Gin — port 8080)
 
@@ -64,6 +64,15 @@ numspot/
 | Server → Client | `game_started`  | Cards dealt, game begins             |
 | Server → Client | `claim_result`  | Outcome of a claim attempt           |
 | Server → Client | `game_over`     | Final scores and winner              |
+
+## Testing
+
+See [TESTING.md](./TESTING.md) for the full guide.
+
+```powershell
+cd frontend
+npm run test:run
+```
 
 ## Deployment
 
