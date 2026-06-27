@@ -23,8 +23,9 @@ type Client interface {
 }
 
 const (
-	wrongClaimPenalty  = 1500 * time.Millisecond
+	wrongClaimPenalty        = 1500 * time.Millisecond
 	correctClaimLockDuration = 2000 * time.Millisecond
+	countdownDuration        = 4000 * time.Millisecond
 )
 
 type Player struct {
@@ -45,6 +46,7 @@ type Room struct {
 	Deck             [][]int
 	CreatedAt        time.Time
 	claimLockedUntil time.Time
+	countdownUntil   time.Time
 	mu               sync.RWMutex
 }
 
@@ -151,6 +153,7 @@ func (r *Room) StartGame() error {
 
 	r.Deck = deck
 	r.State = StatePlaying
+	r.countdownUntil = time.Now().Add(countdownDuration)
 	return nil
 }
 
@@ -177,7 +180,7 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	}
 
 	now := time.Now()
-	if now.Before(r.claimLockedUntil) || now.Before(p.penalizedUntil) {
+	if now.Before(r.countdownUntil) || now.Before(r.claimLockedUntil) || now.Before(p.penalizedUntil) {
 		return ClaimResult{Rejected: true}
 	}
 
