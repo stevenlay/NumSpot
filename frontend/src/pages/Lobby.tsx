@@ -12,10 +12,9 @@ export default function Lobby() {
   const phase = useGameStore((s) => s.phase)
   const startGame = useGameStore((s) => s.startGame)
   const goHome = useGameStore((s) => s.goHome)
+  const [copied, setCopied] = useState(false)
 
   if (phase === 'playing' || phase === 'finished') return <Navigate to="/game" replace />
-
-  const [copied, setCopied] = useState(false)
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomCode).catch(() => {})

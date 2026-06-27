@@ -116,6 +116,10 @@ export default function Game() {
 
         <Scoreboard players={players} currentPlayerId={playerId} className="w-full" />
 
+        <p className="text-xs text-muted-foreground text-center">
+          Find the one number shared between your card and the center card, then tap it to claim!
+        </p>
+
         <NumberCard
           numbers={centerCard}
           label="Center Card"
@@ -133,9 +137,6 @@ export default function Game() {
           className="w-full"
         />
 
-        <p className="text-xs text-muted-foreground text-center pb-4">
-          Find the one number shared between your card and the center card, then tap it to claim!
-        </p>
       </div>
     </div>
   )
