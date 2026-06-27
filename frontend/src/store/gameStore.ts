@@ -74,7 +74,7 @@ function handleMessage(
         players: p.players ?? get().players,
         lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct },
       })
-      setTimeout(() => set({ lastClaim: null }), 1500)
+      setTimeout(() => set({ lastClaim: null }), p.correct ? 3000 : 1500)
       break
     }
     case 'game_over': {

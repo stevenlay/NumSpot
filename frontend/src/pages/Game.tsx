@@ -99,9 +99,10 @@ export default function Game() {
       {showToast && toastText && (
         <div
           className={cn(
-            'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-bold text-white text-sm transition-all',
+            'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-bold text-white text-sm',
             lastClaim?.correct ? 'bg-green-500' : 'bg-red-500'
           )}
+          style={{ animation: `toast-out ${lastClaim?.correct ? '3s' : '1.5s'} ease-in forwards` }}
         >
           {toastText}
         </div>
@@ -123,18 +124,19 @@ export default function Game() {
         <Scoreboard players={players} currentPlayerId={playerId} className="w-full" />
 
         <NumberCard
+          key={centerCard.join(',')}
           numbers={centerCard}
           label="Center Card"
           highlightNumber={highlightNum}
           clickable={false}
-          className="w-full"
+          className="w-full animate-card-in"
         />
 
         <NumberCard
           numbers={myCard}
           label="Your Card — tap the matching number!"
           onClaim={claim}
-          clickable={true}
+          clickable={lastClaim === null}
           highlightNumber={highlightNum}
           className="w-full"
         />
