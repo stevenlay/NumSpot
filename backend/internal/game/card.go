@@ -78,3 +78,12 @@ func ToDisplay(card []int) []int {
 func FromDisplay(n int) int {
 	return n - 1
 }
+
+// FromDisplaySlice converts a 1-based display card to 0-based symbol indices.
+func FromDisplaySlice(card []int) []int {
+	out := make([]int, len(card))
+	for i, v := range card {
+		out[i] = v - 1
+	}
+	return out
+}

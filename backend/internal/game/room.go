@@ -186,8 +186,8 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 
 	// Convert display symbol to 0-based for FindMatch
 	symIdx := FromDisplay(symbol)
-	playerCard0 := fromDisplay(p.Card)
-	centerCard0 := fromDisplay(r.CenterCard)
+	playerCard0 := FromDisplaySlice(p.Card)
+	centerCard0 := FromDisplaySlice(r.CenterCard)
 
 	match := FindMatch(playerCard0, centerCard0)
 	if match != symIdx {
@@ -240,13 +240,4 @@ func (r *Room) findWinner() string {
 		}
 	}
 	return winnerID
-}
-
-// fromDisplay converts a 1-indexed card to 0-indexed.
-func fromDisplay(card []int) []int {
-	out := make([]int, len(card))
-	for i, v := range card {
-		out[i] = v - 1
-	}
-	return out
 }
