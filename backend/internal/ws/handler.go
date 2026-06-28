@@ -40,7 +40,7 @@ var upgrader = websocket.Upgrader{
 // Handler manages WebSocket connections and routes messages to game logic.
 type Handler struct {
 	manager *game.Manager
-	// clientsByRoom: roomCode → (playerID → *WSClient)
+	// clientsByRoom: roomCode → (connectionID → *WSClient)
 	clientsByRoom map[string]map[string]*WSClient
 	mu            sync.RWMutex
 }
@@ -60,18 +60,20 @@ func (h *Handler) ServeWS(c *gin.Context) {
 		return
 	}
 
+	id := uuid.New().String()
 	client := &WSClient{
-		ID:      uuid.New().String(),
-		Send:    make(chan []byte, 256),
-		conn:    conn,
-		handler: h,
+		ID:       id,
+		PlayerID: id, // overwritten on rejoin
+		Send:     make(chan []byte, 256),
+		conn:     conn,
+		handler:  h,
 	}
 
 	go client.writePump()
 	client.readPump()
 }
 
-// registerClient adds a client to the internal clientsByRoom map.
+// registerClient adds a client to the internal clientsByRoom map (keyed by connection ID).
 func (h *Handler) registerClient(roomCode string, c *WSClient) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -103,16 +105,29 @@ func (h *Handler) unregister(c *WSClient) {
 		return
 	}
 
-	empty := room.RemovePlayer(c.ID)
-	if empty {
-		h.manager.DeleteRoom(c.RoomCode)
-		return
+	var empty bool
+	if c.IsSpectator {
+		empty = room.RemoveSpectator(c.ID)
+		if !empty {
+			h.broadcast(c.RoomCode, OutboundMessage{
+				Type:    MsgSpectatorLeft,
+				Payload: SpectatorLeftPayload{SpectatorID: c.ID},
+			})
+		}
+	} else {
+		var playerDisconnected bool
+		empty, playerDisconnected = room.RemovePlayer(c.PlayerID, c.ID)
+		if playerDisconnected && !empty {
+			h.broadcast(c.RoomCode, OutboundMessage{
+				Type:    MsgPlayerLeft,
+				Payload: PlayerLeftPayload{PlayerID: c.PlayerID},
+			})
+		}
 	}
 
-	h.broadcast(c.RoomCode, OutboundMessage{
-		Type:    MsgPlayerLeft,
-		Payload: PlayerLeftPayload{PlayerID: c.ID},
-	})
+	if empty {
+		h.manager.DeleteRoom(c.RoomCode)
+	}
 }
 
 // handleMessage routes an inbound message to the appropriate handler.
@@ -128,6 +143,8 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 		h.handleCreateRoom(c, msg.Payload)
 	case MsgJoinRoom:
 		h.handleJoinRoom(c, msg.Payload)
+	case MsgRejoinRoom:
+		h.handleRejoinRoom(c, msg.Payload)
 	case MsgStartGame:
 		h.handleStartGame(c)
 	case MsgClaim:
@@ -155,6 +172,10 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 	room.RegisterClient(c.ID, c)
 	h.registerClient(room.Code, c)
 
+	room.RLock()
+	token := room.Players[c.ID].Token
+	room.RUnlock()
+
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
@@ -162,6 +183,7 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 			PlayerID: c.ID,
 			IsHost:   true,
 			Players:  room.PlayerList(),
+			Token:    token,
 		},
 	})
 }
@@ -185,6 +207,48 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 		return
 	}
 
+	room.RLock()
+	state := room.State
+	centerCard := make([]int, len(room.CenterCard))
+	copy(centerCard, room.CenterCard)
+	deckSize := len(room.Deck)
+	room.RUnlock()
+
+	if state != game.StateWaiting {
+		// Game already started — add as spectator
+		c.RoomCode = code
+		c.IsSpectator = true
+		room.AddSpectator(c.ID, name, c)
+		h.registerClient(code, c)
+
+		spectatorInfo := SpectatorInfo{ID: c.ID, Name: name}
+		h.broadcastExcept(code, c.ID, OutboundMessage{
+			Type:    MsgSpectatorJoined,
+			Payload: SpectatorJoinedPayload{Spectator: spectatorInfo},
+		})
+
+		entries := room.SpectatorList()
+		spectators := make([]SpectatorInfo, len(entries))
+		for i, s := range entries {
+			spectators[i] = SpectatorInfo{ID: s.ID, Name: s.Name}
+		}
+
+		h.sendTo(c, OutboundMessage{
+			Type: MsgRoomJoined,
+			Payload: RoomJoinedPayload{
+				RoomCode:    code,
+				PlayerID:    c.ID,
+				IsHost:      false,
+				IsSpectator: true,
+				Players:     room.PlayerList(),
+				CenterCard:  centerCard,
+				DeckSize:    deckSize,
+				Spectators:  spectators,
+			},
+		})
+		return
+	}
+
 	if err := room.AddPlayer(c.ID, name); err != nil {
 		h.sendError(c, err.Error())
 		return
@@ -194,18 +258,15 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	room.RegisterClient(c.ID, c)
 	h.registerClient(code, c)
 
-	// Get new player info
 	room.RLock()
 	newPlayer := room.Players[c.ID]
 	room.RUnlock()
 
-	// Notify existing clients of new player
 	h.broadcastExcept(code, c.ID, OutboundMessage{
 		Type:    MsgPlayerJoined,
 		Payload: PlayerJoinedPayload{Player: newPlayer},
 	})
 
-	// Send room_joined to the joining client
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
@@ -213,6 +274,65 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 			PlayerID: c.ID,
 			IsHost:   false,
 			Players:  room.PlayerList(),
+			Token:    newPlayer.Token,
+		},
+	})
+}
+
+func (h *Handler) handleRejoinRoom(c *WSClient, payload map[string]interface{}) {
+	token, _ := payload["token"].(string)
+	code, _ := payload["code"].(string)
+	if token == "" || code == "" {
+		h.sendError(c, "token and code are required")
+		return
+	}
+
+	room, ok := h.manager.GetRoom(code)
+	if !ok {
+		h.sendError(c, "room not found")
+		return
+	}
+
+	player, err := room.RejoinPlayer(token, c)
+	if err != nil {
+		h.sendError(c, err.Error())
+		return
+	}
+
+	// Use the player's original ID for all game-layer operations
+	c.PlayerID = player.ID
+	c.RoomCode = code
+	h.registerClient(code, c)
+
+	room.RLock()
+	centerCard := make([]int, len(room.CenterCard))
+	copy(centerCard, room.CenterCard)
+	deckSize := len(room.Deck)
+	isHost := room.HostID == player.ID
+	room.RUnlock()
+
+	h.broadcastExcept(code, c.ID, OutboundMessage{
+		Type:    MsgPlayerRejoined,
+		Payload: PlayerRejoinedPayload{Player: player},
+	})
+
+	entries := room.SpectatorList()
+	spectators := make([]SpectatorInfo, len(entries))
+	for i, s := range entries {
+		spectators[i] = SpectatorInfo{ID: s.ID, Name: s.Name}
+	}
+
+	h.sendTo(c, OutboundMessage{
+		Type: MsgRejoinedRoom,
+		Payload: RejoinedRoomPayload{
+			RoomCode:   code,
+			PlayerID:   player.ID,
+			IsHost:     isHost,
+			Token:      token,
+			Players:    room.PlayerList(),
+			CenterCard: centerCard,
+			DeckSize:   deckSize,
+			Spectators: spectators,
 		},
 	})
 }
@@ -230,7 +350,7 @@ func (h *Handler) handleStartGame(c *WSClient) {
 	}
 
 	room.RLock()
-	isHost := room.HostID == c.ID
+	isHost := room.HostID == c.PlayerID
 	room.RUnlock()
 
 	if !isHost {
@@ -280,7 +400,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 		return
 	}
 
-	result := room.Claim(c.ID, symbol)
+	result := room.Claim(c.PlayerID, symbol)
 	if result.Rejected {
 		return
 	}
@@ -288,7 +408,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 	h.broadcast(c.RoomCode, OutboundMessage{
 		Type: MsgClaimResult,
 		Payload: ClaimResultPayload{
-			PlayerID:   c.ID,
+			PlayerID:   c.PlayerID,
 			Symbol:     symbol,
 			Correct:    result.Correct,
 			CenterCard: result.CenterCard,
@@ -325,7 +445,7 @@ func (h *Handler) broadcast(roomCode string, msg interface{}) {
 	}
 }
 
-// broadcastExcept sends to all clients in a room except the given player ID.
+// broadcastExcept sends to all clients in a room except the given connection ID.
 func (h *Handler) broadcastExcept(roomCode, excludeID string, msg interface{}) {
 	data, err := json.Marshal(msg)
 	if err != nil {
@@ -359,4 +479,3 @@ func (h *Handler) sendError(c *WSClient, message string) {
 		Payload: ErrorPayload{Message: message},
 	})
 }
-

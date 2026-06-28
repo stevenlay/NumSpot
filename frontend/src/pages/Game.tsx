@@ -19,6 +19,7 @@ export default function Game() {
   const deckSize = useGameStore((s) => s.deckSize)
   const countdown = useGameStore((s) => s.countdown)
   const roomCode = useGameStore((s) => s.roomCode)
+  const spectators = useGameStore((s) => s.spectators)
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
   const isSpectator = useGameStore((s) => s.isSpectator)
@@ -179,6 +180,9 @@ export default function Game() {
           {isSpectator && (
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
           )}
+          {spectators.length > 0 && (
+            <span className="md:hidden text-xs text-muted-foreground">{spectators.length} watching</span>
+          )}
           <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
             Leave
@@ -196,6 +200,16 @@ export default function Game() {
             <span className="text-2xl font-black tracking-widest text-foreground">{roomCode}</span>
           </div>
           <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
+          {spectators.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Watching</h2>
+              {spectators.map((s) => (
+                <div key={s.id} className="px-3 py-2 rounded-lg text-sm bg-muted/50 text-muted-foreground truncate">
+                  {s.name}
+                </div>
+              ))}
+            </div>
+          )}
         </aside>
 
         {/* Main content */}
