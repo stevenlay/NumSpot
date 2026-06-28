@@ -80,12 +80,15 @@ function handleMessage(
     case 'room_joined': {
       const p = msg.payload as RoomJoinedPayload
       if (p.is_spectator) {
+        // Restore token from localStorage so the player can rejoin if they were previously a participant
+        const savedToken = loadSession(p.room_code)
         set({
           phase: 'playing',
           playerId: p.player_id,
           roomCode: p.room_code,
           isHost: false,
           isSpectator: true,
+          token: savedToken ?? '',
           players: p.players,
           spectators: p.spectators ?? [],
           centerCard: p.center_card ?? [],
@@ -197,10 +200,16 @@ function handleMessage(
     }
     case 'error': {
       const p = msg.payload as { message: string }
-      // If we attempted rejoin_room from the home form and it failed, the token is stale
       if (get()._pendingRejoin) {
+        // Token is stale — clear it and retry as a fresh join
         clearSession()
-        set({ error: p.message, _pendingRejoin: false })
+        set({ _pendingRejoin: false })
+        const { name, roomCode, _ws } = get()
+        if (_ws && roomCode) {
+          _ws.send(JSON.stringify({ type: 'join_room', payload: { code: roomCode, name } }))
+        } else {
+          set({ error: p.message })
+        }
       } else {
         set({ error: p.message })
       }
@@ -361,7 +370,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   goHome: () => {
     const ws = get()._ws
-    clearSession()
+    const { phase } = get()
+    // Keep session alive when leaving mid-game so the player can rejoin later.
+    // Clear it when in lobby (player slot already freed) or finished (token is stale).
+    if (phase !== 'playing') {
+      clearSession()
+    }
     // Reset state first so onclose sees phase='home' and skips the disconnected flag
     set({
       phase: 'home',
