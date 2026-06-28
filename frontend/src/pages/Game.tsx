@@ -5,6 +5,7 @@ import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
 export default function Game() {
@@ -17,8 +18,12 @@ export default function Game() {
   const winner = useGameStore((s) => s.winner)
   const deckSize = useGameStore((s) => s.deckSize)
   const countdown = useGameStore((s) => s.countdown)
+  const roomCode = useGameStore((s) => s.roomCode)
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
+  const isSpectator = useGameStore((s) => s.isSpectator)
+  const disconnected = useGameStore((s) => s.disconnected)
+  const rejoin = useGameStore((s) => s.rejoin)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
 
@@ -76,7 +81,11 @@ export default function Game() {
             <CardTitle className="text-3xl font-extrabold text-primary">Game Over!</CardTitle>
             {winner && (
               <p className="text-xl font-semibold text-foreground">
-                {winner.id === playerId ? 'You win!' : `${winner.name} wins!`}
+                {isSpectator
+                  ? `${winner.name} wins!`
+                  : winner.id === playerId
+                    ? 'You win!'
+                    : `${winner.name} wins!`}
               </p>
             )}
           </CardHeader>
@@ -105,7 +114,7 @@ export default function Game() {
           </CardContent>
           <CardFooter>
             <Button onClick={goHome} size="lg" className="w-full">
-              Play Again
+              {isSpectator ? 'Back to Home' : 'Play Again'}
             </Button>
           </CardFooter>
         </Card>
@@ -144,10 +153,27 @@ export default function Game() {
         </div>
       )}
 
+      {disconnected && (
+        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+          <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
+            <span>Connection lost.</span>
+            <button onClick={rejoin} className="underline font-semibold ml-2">
+              Reconnect
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="w-full flex items-center justify-between px-6 py-3 border-b border-border">
-        <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
         <div className="flex items-center gap-3">
+          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
+          <span className="md:hidden text-sm font-black tracking-widest text-foreground">{roomCode}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {isSpectator && (
+            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
+          )}
           <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
             Leave
@@ -159,17 +185,23 @@ export default function Game() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Left sidebar — hidden on small screens */}
-        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col">
+        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
+            <span className="text-2xl font-black tracking-widest text-foreground">{roomCode}</span>
+          </div>
           <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
         </aside>
 
         {/* Main content */}
         <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
           <div className="w-full max-w-md flex flex-col gap-4">
-            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
-              <span className="shrink-0">💡</span>
-              <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
-            </div>
+            {!isSpectator && (
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
+                <span className="shrink-0">💡</span>
+                <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-10 pt-16">
               <NumberCard
@@ -181,14 +213,20 @@ export default function Game() {
                 className="w-full animate-card-in"
               />
 
-              <NumberCard
-                numbers={myCard}
-                label="Your Card — tap the matching number!"
-                onClaim={handleClaim}
-                clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
-                highlightNumber={highlightNum}
-                className="w-full"
-              />
+              {isSpectator ? (
+                <div className="text-center text-muted-foreground text-sm py-6 border border-dashed border-border rounded-xl">
+                  You are spectating — watch the action above.
+                </div>
+              ) : (
+                <NumberCard
+                  numbers={myCard}
+                  label="Your Card — tap the matching number!"
+                  onClaim={handleClaim}
+                  clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
+                  highlightNumber={highlightNum}
+                  className="w-full"
+                />
+              )}
             </div>
           </div>
         </main>
