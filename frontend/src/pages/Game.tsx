@@ -23,6 +23,8 @@ export default function Game() {
   const goHome = useGameStore((s) => s.goHome)
   const isSpectator = useGameStore((s) => s.isSpectator)
   const disconnected = useGameStore((s) => s.disconnected)
+  const error = useGameStore((s) => s.error)
+  const resetError = useGameStore((s) => s.resetError)
   const rejoin = useGameStore((s) => s.rejoin)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
@@ -156,8 +158,11 @@ export default function Game() {
       {disconnected && (
         <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
           <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
-            <span>Connection lost.</span>
-            <button onClick={rejoin} className="underline font-semibold ml-2">
+            <span>{error ? `${error} —` : 'Connection lost.'}</span>
+            <button
+              onClick={() => { resetError(); rejoin() }}
+              className="underline font-semibold ml-2 shrink-0"
+            >
               Reconnect
             </button>
           </AlertDescription>

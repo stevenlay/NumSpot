@@ -26,13 +26,15 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 key={p.id}
                 className={cn(
                   'flex items-center justify-between px-3 py-2 rounded-lg text-sm',
-                  isLeader ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' : 'bg-muted/50 text-foreground',
+                  isLeader ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' : 'bg-muted text-foreground',
                   isYou && 'ring-2 ring-primary ring-offset-1',
+                  p.connected === false && 'opacity-25',
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span>{i === 0 && isLeader ? '🏆' : `${i + 1}.`}</span>
                   <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
+                  {p.connected === false && <span className="shrink-0 text-xs text-muted-foreground">(offline)</span>}
                 </div>
                 <span className="font-bold shrink-0 ml-2">{p.score}</span>
               </div>
@@ -58,10 +60,12 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium h-auto',
                 isLeader && 'bg-yellow-50 border border-yellow-300 text-yellow-800 hover:bg-yellow-50',
                 isYou && 'ring-2 ring-primary ring-offset-1',
+                p.connected === false && 'opacity-25',
               )}
             >
               <span className="text-lg">{i === 0 && isLeader ? '🏆' : '•'}</span>
               <span>{p.name}{isYou ? ' (you)' : ''}</span>
+              {p.connected === false && <span className="text-xs text-muted-foreground">(offline)</span>}
               <span className="font-bold">{p.score}</span>
             </Badge>
           )
