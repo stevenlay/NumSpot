@@ -202,8 +202,9 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	// Player's card becomes the new center; player draws a fresh card from deck
 	r.CenterCard = p.Card
 	if len(r.Deck) > 0 {
-		p.Card = r.Deck[0]
-		r.Deck = r.Deck[1:]
+		last := len(r.Deck) - 1
+		p.Card = r.Deck[last]
+		r.Deck = r.Deck[:last]
 	} else {
 		r.State = StateFinished
 	}
