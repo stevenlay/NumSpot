@@ -52,13 +52,14 @@ func GenerateCards(p int) [][]int {
 
 // FindMatch returns the single shared symbol between two cards.
 // Returns -1 if no match found (should not happen with valid projective plane cards).
+// Works with either 0-based or 1-based values as long as both cards use the same base.
 func FindMatch(a, b []int) int {
-	set := make(map[int]bool, len(a))
+	var seen [58]bool
 	for _, v := range a {
-		set[v] = true
+		seen[v] = true
 	}
 	for _, v := range b {
-		if set[v] {
+		if seen[v] {
 			return v
 		}
 	}
@@ -70,20 +71,6 @@ func ToDisplay(card []int) []int {
 	out := make([]int, len(card))
 	for i, v := range card {
 		out[i] = v + 1
-	}
-	return out
-}
-
-// FromDisplay converts 1-based display number back to 0-based symbol index.
-func FromDisplay(n int) int {
-	return n - 1
-}
-
-// FromDisplaySlice converts a 1-based display card to 0-based symbol indices.
-func FromDisplaySlice(card []int) []int {
-	out := make([]int, len(card))
-	for i, v := range card {
-		out[i] = v - 1
 	}
 	return out
 }

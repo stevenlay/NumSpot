@@ -143,12 +143,14 @@ func (r *Room) StartGame() error {
 		return errors.New("not enough cards")
 	}
 
-	r.CenterCard = deck[0]
-	deck = deck[1:]
+	last := len(deck) - 1
+	r.CenterCard = deck[last]
+	deck = deck[:last]
 
 	for _, p := range r.Players {
-		p.Card = deck[0]
-		deck = deck[1:]
+		last = len(deck) - 1
+		p.Card = deck[last]
+		deck = deck[:last]
 	}
 
 	r.Deck = deck
@@ -184,13 +186,8 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		return ClaimResult{Rejected: true}
 	}
 
-	// Convert display symbol to 0-based for FindMatch
-	symIdx := FromDisplay(symbol)
-	playerCard0 := FromDisplaySlice(p.Card)
-	centerCard0 := FromDisplaySlice(r.CenterCard)
-
-	match := FindMatch(playerCard0, centerCard0)
-	if match != symIdx {
+	match := FindMatch(p.Card, r.CenterCard)
+	if match != symbol {
 		p.penalizedUntil = now.Add(wrongClaimPenalty)
 		return ClaimResult{Correct: false}
 	}
