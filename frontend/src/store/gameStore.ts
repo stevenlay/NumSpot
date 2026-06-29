@@ -185,7 +185,7 @@ function handleMessage(
       const p = msg.payload as GameOverPayload
       const { playerId } = get()
       const winner = p.players.find((pl) => pl.id === p.winner_id) ?? null
-      set({ gameOverToast: { winner, players: p.players } })
+      set({ phase: 'finished', gameOverToast: { winner, players: p.players } })
       const sorted = [...p.players].sort((a, b) => b.score - a.score)
       addStatusEntry(set, winner ? `Game over! ${winner.id === playerId ? 'You win!' : `${winner.name} wins!`}` : 'Game over!')
       const top3 = sorted.slice(0, 3)
@@ -265,7 +265,7 @@ function makeOnClose(
 ) {
   return () => {
     const { phase } = get()
-    if (phase === 'lobby' || phase === 'playing') {
+    if (phase === 'lobby' || phase === 'playing' || phase === 'finished') {
       set({ connected: false, _ws: null, disconnected: true })
     } else {
       set({ connected: false, _ws: null })

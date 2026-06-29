@@ -21,9 +21,12 @@ export default function Game() {
   const roomCode = useGameStore((s) => s.roomCode)
   const spectators = useGameStore((s) => s.spectators)
   const claim = useGameStore((s) => s.claim)
+  const restartGame = useGameStore((s) => s.restartGame)
   const goHome = useGameStore((s) => s.goHome)
+  const isHost = useGameStore((s) => s.isHost)
   const isSpectator = useGameStore((s) => s.isSpectator)
   const settings = useGameStore((s) => s.settings)
+  const gameOverToast = useGameStore((s) => s.gameOverToast)
   const disconnected = useGameStore((s) => s.disconnected)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
@@ -188,6 +191,50 @@ export default function Game() {
           </div>
 
         {/* Main content */}
+        {phase === 'finished' && gameOverToast ? (
+          <main className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto min-w-0">
+            <div className="w-full max-w-md flex flex-col gap-5">
+              <div className="text-center flex flex-col items-center gap-1">
+                <span className="text-5xl">🏆</span>
+                <h2 className="text-2xl font-extrabold mt-2">
+                  {gameOverToast.winner
+                    ? gameOverToast.winner.id === playerId
+                      ? 'You won!'
+                      : `${gameOverToast.winner.name} wins!`
+                    : 'Game over!'}
+                </h2>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {[...gameOverToast.players]
+                  .sort((a, b) => b.score - a.score)
+                  .map((p, i) => (
+                    <div
+                      key={p.id}
+                      className={cn(
+                        'flex justify-between items-center px-4 py-2 rounded-lg font-semibold',
+                        i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
+                        i === 1 && 'bg-slate-100 text-slate-700 text-sm',
+                        i === 2 && 'bg-orange-100 text-orange-800 text-sm',
+                        i >= 3 && 'text-muted-foreground text-sm',
+                      )}
+                    >
+                      <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                      <span>{p.score} pt{p.score !== 1 ? 's' : ''}</span>
+                    </div>
+                  ))}
+              </div>
+              {isHost ? (
+                <Button size="lg" className="w-full" onClick={restartGame}>
+                  Play Again
+                </Button>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                  Waiting for the host to start a new game…
+                </p>
+              )}
+            </div>
+          </main>
+        ) : (
         <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
           <div className="w-full max-w-md flex flex-col gap-4">
             <div className="flex flex-col gap-10 pt-8">
@@ -247,6 +294,7 @@ export default function Game() {
             </div>
           </div>
         </main>
+        )}
         </div>
 
         {/* Right sidebar — chat, hidden below lg */}

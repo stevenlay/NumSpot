@@ -481,6 +481,70 @@ func TestDevReset(t *testing.T) {
 	readUntil(t, guest, MsgGameReset)
 }
 
+// TestRestartGame_HappyPath plays through a minimal deck to reach StateFinished,
+// then verifies the host can restart and everyone receives game_reset.
+func TestRestartGame_HappyPath(t *testing.T) {
+	srv := newTestServer(t)
+	host, _, playerID := createRoom(t, srv, "Host")
+
+	// Minimum deck so we cycle through quickly; no claim lock so claims don't block each other.
+	sendMsg(t, host, MsgUpdateSettings, map[string]any{
+		"max_players": 8, "deck_size": 5,
+		"wrong_claim_penalty_ms": 0, "correct_claim_lock_ms": 0,
+	})
+	readUntil(t, host, MsgSettingsUpdated)
+
+	raw := startGame(t, host)
+
+	// Parse CenterCard + the player's own card and CardsLeft out of any game state blob.
+	var center []int
+	var myCard []int
+	var cardsLeft int
+	parseState := func(data json.RawMessage) {
+		var s struct {
+			CenterCard []int `json:"center_card"`
+			Players    []struct {
+				ID        string `json:"id"`
+				Card      []int  `json:"card"`
+				CardsLeft int    `json:"cards_left"`
+			} `json:"players"`
+		}
+		json.Unmarshal(data, &s)
+		center = s.CenterCard
+		for _, p := range s.Players {
+			if p.ID == playerID {
+				myCard = p.Card
+				cardsLeft = p.CardsLeft
+				break
+			}
+		}
+	}
+	parseState(raw)
+
+	// Play correct claims until the deck is exhausted (triggers game_over).
+	for {
+		symbol := game.FindMatch(myCard, center)
+		sendMsg(t, host, MsgClaim, map[string]any{"symbol": symbol})
+		crRaw := readUntil(t, host, MsgClaimResult)
+		wasLast := cardsLeft == 0
+		parseState(crRaw)
+		if wasLast {
+			break
+		}
+	}
+
+	readUntil(t, host, MsgGameOver)
+
+	// Host explicitly restarts — room is in StateFinished.
+	sendMsg(t, host, MsgRestartGame, nil)
+
+	var reset struct{ HostID string `json:"host_id"` }
+	json.Unmarshal(readUntil(t, host, MsgGameReset), &reset)
+	if reset.HostID == "" {
+		t.Error("expected host_id in game_reset payload")
+	}
+}
+
 // TestRestartGame_NonHostRejected verifies that only the host can send restart_game.
 func TestRestartGame_NonHostRejected(t *testing.T) {
 	srv := newTestServer(t)
@@ -497,10 +561,7 @@ func TestRestartGame_NonHostRejected(t *testing.T) {
 	}
 }
 
-// TestRestartGame_NotFinished verifies the error path when the game is not yet finished.
-// Note: handleClaim auto-resets the room synchronously on game over, so restart_game's
-// happy path is unreachable through the normal WS interface — the room is always back in
-// StateWaiting by the time a client could send restart_game after seeing game_over.
+// TestRestartGame_NotFinished verifies the error path when the room is not in StateFinished.
 func TestRestartGame_NotFinished(t *testing.T) {
 	srv := newTestServer(t)
 	host, _, _ := createRoom(t, srv, "Host")

@@ -480,23 +480,8 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 				WinnerID: result.WinnerID,
 			},
 		})
-
-		room.RLock()
-		hostID := room.HostID
-		room.RUnlock()
-
-		// Store before reset so new joiners can see the result (scores are cleared in reset).
+		// Store result now so new joiners see the scoreboard while host decides to restart.
 		room.SetLastGameResult(result.WinnerID, result.Players)
-
-		if err := room.ResetToLobby(); err == nil {
-			h.broadcast(c.RoomCode, OutboundMessage{
-				Type: MsgGameReset,
-				Payload: GameResetPayload{
-					Players: room.PlayerList(),
-					HostID:  hostID,
-				},
-			})
-		}
 	}
 }
 
