@@ -142,9 +142,9 @@ describe('Game', () => {
       expect(cards).toHaveLength(2)
     })
 
-    it('shows cards remaining including card in hand', () => {
+    it('shows cards remaining', () => {
       setup()
-      expect(screen.getByText('6')).toBeInTheDocument() // cards_left(5) + 1 for card in hand
+      expect(screen.getByText('5')).toBeInTheDocument()
       expect(screen.getByText('cards left')).toBeInTheDocument()
     })
 

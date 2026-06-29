@@ -36,7 +36,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   <span className="font-bold">{p.score}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{(p.cards_left ?? 0) + 1} left</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{p.cards_left ?? 0} left</span>
                 </div>
               </div>
             )

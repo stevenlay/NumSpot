@@ -322,7 +322,7 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 		} else {
 			p.deck = nil
 		}
-		p.CardsLeft = len(p.deck)
+		p.CardsLeft = len(p.deck) + 1
 	}
 
 	r.Deck = nil
@@ -381,7 +381,7 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		last := len(p.deck) - 1
 		p.Card = p.deck[last]
 		p.deck = p.deck[:last]
-		p.CardsLeft = len(p.deck)
+		p.CardsLeft = len(p.deck) + 1
 	} else {
 		r.State = StateFinished
 	}

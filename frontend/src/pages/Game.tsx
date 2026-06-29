@@ -184,8 +184,8 @@ export default function Game() {
           <div className="w-full flex items-center justify-center gap-3 border-b border-border bg-muted px-6 py-2.5 shrink-0">
             <span className="text-2xl font-black tabular-nums text-foreground">
               {isSpectator
-                ? players.reduce((sum, p) => sum + (p.cards_left ?? 0) + 1, 0)
-                : (myPlayer?.cards_left ?? 0) + 1}
+                ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
+                : (myPlayer?.cards_left ?? 0)}
             </span>
             <span className="text-sm font-semibold text-muted-foreground">cards left</span>
           </div>

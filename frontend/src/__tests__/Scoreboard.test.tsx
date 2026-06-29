@@ -51,9 +51,9 @@ describe('Scoreboard', () => {
     })
 
     it('shows cards_left count', () => {
-      const withCards = [makePlayer('p1', 'Alice', 3, 4)]
-      render(<Scoreboard players={withCards} currentPlayerId="p1" layout="vertical" />)
-      expect(screen.getByText('5 left')).toBeInTheDocument()
+      const withCards = [makePlayer('solo', 'Zara', 0, 11)]
+      render(<Scoreboard players={withCards} currentPlayerId="solo" layout="vertical" />)
+      expect(screen.getByText('11 left')).toBeInTheDocument()
     })
 
     it('renders Scores heading', () => {
