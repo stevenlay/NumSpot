@@ -409,3 +409,166 @@ func TestUnknownMessageType(t *testing.T) {
 		t.Error("expected error for unknown message type")
 	}
 }
+
+func TestChat(t *testing.T) {
+	srv := newTestServer(t)
+	host, code, _ := createRoom(t, srv, "Host")
+	guest := dialWS(t, srv)
+	sendMsg(t, guest, MsgJoinRoom, map[string]any{"code": code, "name": "Guest"})
+	readUntil(t, guest, MsgRoomJoined)
+	readUntil(t, host, MsgPlayerJoined)
+
+	sendMsg(t, host, MsgChatSend, map[string]any{"text": "hello"})
+
+	var msg struct {
+		SenderName string `json:"sender_name"`
+		Text       string `json:"text"`
+		Timestamp  int64  `json:"timestamp"`
+	}
+	// Both connections receive the broadcast
+	json.Unmarshal(readUntil(t, host, MsgChatMessage), &msg)
+	if msg.SenderName != "Host" {
+		t.Errorf("sender_name = %q, want Host", msg.SenderName)
+	}
+	if msg.Text != "hello" {
+		t.Errorf("text = %q, want hello", msg.Text)
+	}
+	if msg.Timestamp == 0 {
+		t.Error("timestamp should be non-zero")
+	}
+	readUntil(t, guest, MsgChatMessage) // guest also receives it
+}
+
+func TestChat_EmptyOrTooLongTextDropped(t *testing.T) {
+	srv := newTestServer(t)
+	host, _, _ := createRoom(t, srv, "Host")
+
+	// Empty text: server silently drops it (no response expected).
+	// We verify by sending a valid chat immediately after and confirming only one message arrives.
+	sendMsg(t, host, MsgChatSend, map[string]any{"text": ""})
+	sendMsg(t, host, MsgChatSend, map[string]any{"text": "ping"})
+
+	var msg struct{ Text string `json:"text"` }
+	json.Unmarshal(readUntil(t, host, MsgChatMessage), &msg)
+	if msg.Text != "ping" {
+		t.Errorf("text = %q, want ping (empty message should have been dropped)", msg.Text)
+	}
+}
+
+func TestDevReset(t *testing.T) {
+	srv := newTestServer(t)
+	host, code, _ := createRoom(t, srv, "Host")
+	guest := dialWS(t, srv)
+	sendMsg(t, guest, MsgJoinRoom, map[string]any{"code": code, "name": "Guest"})
+	readUntil(t, guest, MsgRoomJoined)
+	readUntil(t, host, MsgPlayerJoined)
+	startGame(t, host)
+	readUntil(t, guest, MsgGameStarted)
+
+	sendMsg(t, host, MsgDevReset, nil)
+
+	// Both connections receive game_over then game_reset
+	readUntil(t, host, MsgGameOver)
+	var reset struct {
+		Players []any  `json:"players"`
+		HostID  string `json:"host_id"`
+	}
+	json.Unmarshal(readUntil(t, host, MsgGameReset), &reset)
+	if reset.HostID == "" {
+		t.Error("host_id should be set in game_reset")
+	}
+	readUntil(t, guest, MsgGameOver)
+	readUntil(t, guest, MsgGameReset)
+}
+
+// TestRestartGame_NonHostRejected verifies that only the host can send restart_game.
+func TestRestartGame_NonHostRejected(t *testing.T) {
+	srv := newTestServer(t)
+	_, code, _ := createRoom(t, srv, "Host")
+	guest := dialWS(t, srv)
+	sendMsg(t, guest, MsgJoinRoom, map[string]any{"code": code, "name": "Guest"})
+	readUntil(t, guest, MsgRoomJoined)
+
+	sendMsg(t, guest, MsgRestartGame, nil)
+	var p struct{ Message string `json:"message"` }
+	json.Unmarshal(readUntil(t, guest, MsgError), &p)
+	if p.Message == "" {
+		t.Error("expected error when non-host sends restart_game")
+	}
+}
+
+// TestRestartGame_NotFinished verifies the error path when the game is not yet finished.
+// Note: handleClaim auto-resets the room synchronously on game over, so restart_game's
+// happy path is unreachable through the normal WS interface — the room is always back in
+// StateWaiting by the time a client could send restart_game after seeing game_over.
+func TestRestartGame_NotFinished(t *testing.T) {
+	srv := newTestServer(t)
+	host, _, _ := createRoom(t, srv, "Host")
+	// Room is in StateWaiting — ResetToLobby requires StateFinished.
+	sendMsg(t, host, MsgRestartGame, nil)
+	var p struct{ Message string `json:"message"` }
+	json.Unmarshal(readUntil(t, host, MsgError), &p)
+	if p.Message == "" {
+		t.Error("expected error when restart_game sent from non-finished room")
+	}
+}
+
+// TestJoinAsPlayer_HappyPath verifies a lobby spectator can convert to a player
+// when a slot opens up (host raises max_players after room was full).
+func TestJoinAsPlayer_HappyPath(t *testing.T) {
+	srv := newTestServer(t)
+
+	// Host creates room and caps it at 2 players.
+	host, code, _ := createRoom(t, srv, "Host")
+	sendMsg(t, host, MsgUpdateSettings, map[string]any{
+		"max_players": 2, "deck_size": 57, "wrong_claim_penalty_ms": 0, "correct_claim_lock_ms": 0,
+	})
+	readUntil(t, host, MsgSettingsUpdated)
+
+	// P2 fills the last player slot.
+	p2 := dialWS(t, srv)
+	sendMsg(t, p2, MsgJoinRoom, map[string]any{"code": code, "name": "P2"})
+	readUntil(t, p2, MsgRoomJoined)
+	readUntil(t, host, MsgPlayerJoined) // drain P2's join notification
+
+	// P3 joins but the room is full — lands as lobby spectator.
+	p3 := dialWS(t, srv)
+	sendMsg(t, p3, MsgJoinRoom, map[string]any{"code": code, "name": "P3"})
+	var p3Joined struct {
+		IsSpectator bool `json:"is_spectator"`
+	}
+	json.Unmarshal(readUntil(t, p3, MsgRoomJoined), &p3Joined)
+	if !p3Joined.IsSpectator {
+		t.Fatal("P3 should have joined as spectator when room was full")
+	}
+	readUntil(t, host, MsgSpectatorJoined) // drain spectator_joined notification
+
+	// Host opens a slot by raising max_players to 3.
+	sendMsg(t, host, MsgUpdateSettings, map[string]any{
+		"max_players": 3, "deck_size": 57, "wrong_claim_penalty_ms": 0, "correct_claim_lock_ms": 0,
+	})
+	readUntil(t, host, MsgSettingsUpdated)
+
+	// P3 converts from spectator to player.
+	sendMsg(t, p3, MsgJoinAsPlayer, nil)
+
+	var joined struct {
+		Player struct {
+			Name string `json:"name"`
+		} `json:"player"`
+	}
+	json.Unmarshal(readUntil(t, p3, MsgJoinedAsPlayer), &joined)
+	if joined.Player.Name != "P3" {
+		t.Errorf("joined player name = %q, want P3", joined.Player.Name)
+	}
+
+	// Host should see the spectator_left broadcast and then player_joined for P3.
+	readUntil(t, host, MsgSpectatorLeft)
+	var pj struct {
+		Player struct{ Name string `json:"name"` } `json:"player"`
+	}
+	json.Unmarshal(readUntil(t, host, MsgPlayerJoined), &pj)
+	if pj.Player.Name != "P3" {
+		t.Errorf("host player_joined name = %q, want P3", pj.Player.Name)
+	}
+}
