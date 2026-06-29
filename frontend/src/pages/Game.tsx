@@ -4,8 +4,7 @@ import { useGameStore } from '../store/gameStore'
 import { useDevStore } from '../store/devStore'
 import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
-import ChatPanel from '../components/game/ChatPanel'
-import { Button } from '@/components/ui/button'
+import GameShell from '../components/game/GameShell'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
@@ -18,11 +17,11 @@ export default function Game() {
   const lastClaim = useGameStore((s) => s.lastClaim)
   const deckSize = useGameStore((s) => s.deckSize)
   const countdown = useGameStore((s) => s.countdown)
-  const roomCode = useGameStore((s) => s.roomCode)
   const spectators = useGameStore((s) => s.spectators)
   const claim = useGameStore((s) => s.claim)
   const goHome = useGameStore((s) => s.goHome)
   const isSpectator = useGameStore((s) => s.isSpectator)
+  const settings = useGameStore((s) => s.settings)
   const disconnected = useGameStore((s) => s.disconnected)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
@@ -53,11 +52,7 @@ export default function Game() {
   }, [phase, navigate])
 
   useEffect(() => {
-    if (lastClaim !== null) {
-      const delay = lastClaim.correct ? 2000 : 1500
-      const timer = setTimeout(() => setClaimSent(false), delay)
-      return () => clearTimeout(timer)
-    }
+    if (lastClaim === null) setClaimSent(false)
   }, [lastClaim])
 
   const handleClaim = (symbol: number) => {
@@ -75,13 +70,10 @@ export default function Game() {
     : null
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <>
       {countdown !== null && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm">
-          <span
-            key={countdown}
-            className="text-8xl font-black text-blue-500 animate-card-in"
-          >
+          <span key={countdown} className="text-8xl font-black text-blue-500 animate-card-in">
             {countdown === 0 ? 'Go!' : countdown}
           </span>
           {countdown > 0 && (
@@ -99,33 +91,22 @@ export default function Game() {
             'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-bold text-white text-sm',
             lastClaim?.correct ? 'bg-green-500' : 'bg-red-500'
           )}
-          style={{ animation: `toast-out ${lastClaim?.correct ? '2s' : '1.5s'} ease-in forwards` }}
+          style={{ animation: `toast-out ${lastClaim?.correct ? `${settings.correct_claim_lock_ms}ms` : `${settings.wrong_claim_penalty_ms}ms`} ease-in forwards` }}
         >
           {toastText}
         </div>
       )}
 
-      {disconnected && (
-        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
-          <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
-            <span>Connection lost — you were removed from the game.</span>
-            <button
-              onClick={goHome}
-              className="underline font-semibold ml-2 shrink-0"
-            >
-              Return Home
-            </button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Header */}
-      <div className="w-full flex items-center justify-between px-6 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
-          <span className="md:hidden text-sm font-black tracking-widest text-foreground">{roomCode}</span>
-        </div>
-        <div className="flex items-center gap-3">
+      <GameShell
+        banner={disconnected ? (
+          <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+            <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
+              <span>Connection lost — you were removed from the game.</span>
+              <button onClick={goHome} className="underline font-semibold ml-2 shrink-0">Return Home</button>
+            </AlertDescription>
+          </Alert>
+        ) : undefined}
+        headerExtras={<>
           {isSpectator && (
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
           )}
@@ -133,21 +114,8 @@ export default function Game() {
             <span className="md:hidden text-xs text-muted-foreground">{spectators.length} spectating</span>
           )}
           <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
-          <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
-            Leave
-          </Button>
-        </div>
-      </div>
-
-      {/* Body: sidebar + main */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-
-        {/* Left sidebar — hidden on small screens */}
-        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
-            <span className="text-2xl font-black tracking-widest text-foreground">{roomCode}</span>
-          </div>
+        </>}
+        sidebarContent={<>
           <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
           {spectators.length > 0 && (
             <div className="flex flex-col gap-1.5 mt-4">
@@ -159,19 +127,16 @@ export default function Game() {
               ))}
             </div>
           )}
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
+        </>}
+      >
+        <main className="flex-1 flex flex-col items-center pt-2 px-6 pb-6 overflow-y-auto min-w-0">
           <div className="w-full max-w-md flex flex-col gap-4">
-            {!isSpectator && (
-              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
-                <span className="shrink-0">💡</span>
-                <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
+              <span className="shrink-0">💡</span>
+              <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+            </div>
 
-            <div className="flex flex-col gap-10 pt-16">
+            <div className="flex flex-col gap-10">
               <NumberCard
                 key={centerCard.join(',')}
                 numbers={centerCard}
@@ -198,12 +163,7 @@ export default function Game() {
             </div>
           </div>
         </main>
-
-        {/* Right sidebar — chat, hidden below lg */}
-        <ChatPanel />
-
-      </div>
-
-    </div>
+      </GameShell>
+    </>
   )
 }

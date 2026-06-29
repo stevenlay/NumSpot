@@ -52,7 +52,9 @@ export default function ChatPanel() {
                     : { color: 'var(--muted-foreground)', opacity: 0.6 }
               }
             >
-              — {entry.text} —
+              {entry.text}{entry.claimElapsedMs !== undefined && (
+                <span className="opacity-60 ml-1">· {(entry.claimElapsedMs / 1000).toFixed(2)}s</span>
+              )}
             </div>
           ) : (
             <div

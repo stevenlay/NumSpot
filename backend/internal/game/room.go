@@ -30,10 +30,25 @@ type SpectatorEntry struct {
 }
 
 const (
-	wrongClaimPenalty        = 1500 * time.Millisecond
-	correctClaimLockDuration = 2000 * time.Millisecond
-	countdownDuration        = 4000 * time.Millisecond
+	countdownDuration = 4000 * time.Millisecond
 )
+
+// RoomSettings holds configurable game settings that the host can change in the lobby.
+type RoomSettings struct {
+	MaxPlayers          int `json:"max_players"`
+	DeckSize            int `json:"deck_size"`
+	WrongClaimPenaltyMs int `json:"wrong_claim_penalty_ms"`
+	CorrectClaimLockMs  int `json:"correct_claim_lock_ms"`
+}
+
+func defaultRoomSettings() RoomSettings {
+	return RoomSettings{
+		MaxPlayers:          8,
+		DeckSize:            57,
+		WrongClaimPenaltyMs: 1500,
+		CorrectClaimLockMs:  2000,
+	}
+}
 
 type Player struct {
 	ID    string `json:"id"`
@@ -47,6 +62,7 @@ type Player struct {
 type Room struct {
 	Code             string
 	HostID           string
+	Settings         RoomSettings
 	Players          map[string]*Player
 	Clients          map[string]Client
 	Spectators       map[string]*SpectatorEntry
@@ -67,6 +83,7 @@ func NewRoom(code, hostID, hostName string) *Room {
 	r := &Room{
 		Code:       code,
 		HostID:     hostID,
+		Settings:   defaultRoomSettings(),
 		Players:    make(map[string]*Player),
 		Clients:    make(map[string]Client),
 		Spectators: make(map[string]*SpectatorEntry),
@@ -93,7 +110,7 @@ func (r *Room) AddPlayer(playerID, name string) error {
 	if r.State != StateWaiting {
 		return errors.New("game already started")
 	}
-	if len(r.Players) >= 8 {
+	if len(r.Players) >= r.Settings.MaxPlayers {
 		return errors.New("room is full")
 	}
 	r.Players[playerID] = &Player{
@@ -101,6 +118,39 @@ func (r *Room) AddPlayer(playerID, name string) error {
 		Name: name,
 	}
 	return nil
+}
+
+// UpdateSettings validates, clamps, and stores new settings. Returns the clamped settings.
+// Must be called only when State == StateWaiting; caller is responsible for that check.
+func (r *Room) UpdateSettings(s RoomSettings) RoomSettings {
+	if s.MaxPlayers < 2 {
+		s.MaxPlayers = 2
+	}
+	if s.MaxPlayers > 8 {
+		s.MaxPlayers = 8
+	}
+	if s.DeckSize < 5 {
+		s.DeckSize = 5
+	}
+	if s.DeckSize > 57 {
+		s.DeckSize = 57
+	}
+	if s.WrongClaimPenaltyMs < 0 {
+		s.WrongClaimPenaltyMs = 0
+	}
+	if s.WrongClaimPenaltyMs > 10000 {
+		s.WrongClaimPenaltyMs = 10000
+	}
+	if s.CorrectClaimLockMs < 0 {
+		s.CorrectClaimLockMs = 0
+	}
+	if s.CorrectClaimLockMs > 10000 {
+		s.CorrectClaimLockMs = 10000
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.Settings = s
+	return s
 }
 
 // RemovePlayer fully removes a player from the room.
@@ -178,12 +228,9 @@ func (r *Room) PlayerList() []*Player {
 	return list
 }
 
-// StartGameOptions holds optional overrides for game start (used by dev tools).
+// StartGameOptions holds dev-only overrides for game start.
 type StartGameOptions struct {
-	SkipCountdown       bool
-	DeckSize            int  // 0 = full deck (57 cards)
-	WrongClaimPenaltyMs *int // nil = use default (1500ms)
-	CorrectClaimLockMs  *int // nil = use default (2000ms)
+	SkipCountdown bool
 }
 
 // AddPlayerMidGame adds a player to an in-progress game and deals them a card from the deck.
@@ -194,7 +241,7 @@ func (r *Room) AddPlayerMidGame(playerID, name string) error {
 	if r.State != StatePlaying {
 		return errors.New("game not in progress")
 	}
-	if len(r.Players) >= 8 {
+	if len(r.Players) >= r.Settings.MaxPlayers {
 		return errors.New("room is full")
 	}
 	if len(r.Deck) == 0 {
@@ -233,13 +280,14 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rng.Shuffle(len(deck), func(i, j int) { deck[i], deck[j] = deck[j], deck[i] })
 
-	// Truncate deck if a smaller size was requested (enforce minimum for dealing)
-	if opts.DeckSize > 0 && opts.DeckSize < len(deck) {
+	// Truncate deck to the configured size (enforce minimum for dealing)
+	if r.Settings.DeckSize < len(deck) {
+		size := r.Settings.DeckSize
 		min := len(r.Players) + 1
-		if opts.DeckSize < min {
-			opts.DeckSize = min
+		if size < min {
+			size = min
 		}
-		deck = deck[:opts.DeckSize]
+		deck = deck[:size]
 	}
 
 	// Convert to display (1-indexed)
@@ -264,16 +312,8 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 
 	r.Deck = deck
 	r.State = StatePlaying
-	if opts.WrongClaimPenaltyMs != nil {
-		r.wrongClaimDelay = time.Duration(*opts.WrongClaimPenaltyMs) * time.Millisecond
-	} else {
-		r.wrongClaimDelay = wrongClaimPenalty
-	}
-	if opts.CorrectClaimLockMs != nil {
-		r.correctClaimDelay = time.Duration(*opts.CorrectClaimLockMs) * time.Millisecond
-	} else {
-		r.correctClaimDelay = correctClaimLockDuration
-	}
+	r.wrongClaimDelay = time.Duration(r.Settings.WrongClaimPenaltyMs) * time.Millisecond
+	r.correctClaimDelay = time.Duration(r.Settings.CorrectClaimLockMs) * time.Millisecond
 	if !opts.SkipCountdown {
 		r.countdownUntil = time.Now().Add(countdownDuration)
 	}

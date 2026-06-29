@@ -4,13 +4,15 @@ import "github.com/numspot/server/internal/game"
 
 // Inbound message types (client → server)
 const (
-	MsgCreateRoom  = "create_room"
-	MsgJoinRoom    = "join_room"
-	MsgStartGame   = "start_game"
-	MsgClaim       = "claim"
-	MsgChatSend    = "chat_send"
-	MsgRestartGame = "restart_game"
-	MsgDevReset    = "dev_reset"
+	MsgCreateRoom    = "create_room"
+	MsgJoinRoom      = "join_room"
+	MsgStartGame     = "start_game"
+	MsgClaim         = "claim"
+	MsgChatSend      = "chat_send"
+	MsgRestartGame   = "restart_game"
+	MsgDevReset      = "dev_reset"
+	MsgUpdateSettings = "update_settings"
+	MsgJoinAsPlayer   = "join_as_player"
 )
 
 // Outbound message types (server → client)
@@ -26,6 +28,8 @@ const (
 	MsgSpectatorLeft   = "spectator_left"
 	MsgChatMessage     = "chat_message"
 	MsgError           = "error"
+	MsgSettingsUpdated = "settings_updated"
+	MsgJoinedAsPlayer  = "joined_as_player"
 )
 
 // InboundMessage is the top-level wrapper for all client messages.
@@ -63,11 +67,12 @@ type SpectatorInfo struct {
 }
 
 type RoomJoinedPayload struct {
-	RoomCode    string          `json:"room_code"`
-	PlayerID    string          `json:"player_id"`
-	IsHost      bool            `json:"is_host"`
-	IsSpectator bool            `json:"is_spectator"`
-	Players     []*game.Player  `json:"players"`
+	RoomCode    string           `json:"room_code"`
+	PlayerID    string           `json:"player_id"`
+	IsHost      bool             `json:"is_host"`
+	IsSpectator bool             `json:"is_spectator"`
+	Players     []*game.Player   `json:"players"`
+	Settings    game.RoomSettings `json:"settings"`
 	// Populated for spectators joining an active game
 	CenterCard []int           `json:"center_card,omitempty"`
 	DeckSize   int             `json:"deck_size,omitempty"`
@@ -117,6 +122,10 @@ type SpectatorJoinedPayload struct {
 
 type SpectatorLeftPayload struct {
 	SpectatorID string `json:"spectator_id"`
+}
+
+type JoinedAsPlayerPayload struct {
+	Player *game.Player `json:"player"`
 }
 
 type ErrorPayload struct {

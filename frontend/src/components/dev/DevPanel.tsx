@@ -4,16 +4,10 @@ import { useDevStore } from '../../store/devStore'
 import { useGameStore } from '../../store/gameStore'
 import { spawnBots, removeAllBots, getBotCount, registerBotCountListener, type BotSpeed } from './BotPlayer'
 
-const MAX_DECK = 57
-const MIN_DECK = 1
-const DEFAULT_DECK = 57
-const DEFAULT_WRONG_MS = 1500
-const DEFAULT_CORRECT_MS = 2000
-
 export default function DevPanel() {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
-  const { skipCountdown, deckSize, highlightAnswer, botSpeed, wrongClaimPenaltyMs, correctClaimLockMs, setSkipCountdown, setDeckSize, setHighlightAnswer, setBotSpeed, setWrongClaimPenaltyMs, setCorrectClaimLockMs } = useDevStore()
+  const { skipCountdown, highlightAnswer, botSpeed, setSkipCountdown, setHighlightAnswer, setBotSpeed } = useDevStore()
   const phase = useGameStore((s) => s.phase)
   const roomCode = useGameStore((s) => s.roomCode)
   const connect = useGameStore((s) => s.connect)
@@ -139,80 +133,6 @@ export default function DevPanel() {
                 className="w-4 h-4 accent-primary cursor-pointer"
               />
             </label>
-
-            <div className="flex flex-col gap-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span>Deck size</span>
-                <span className="flex items-center gap-1.5">
-                  <span className={deckSize !== DEFAULT_DECK ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{deckSize}</span>
-                  {deckSize !== DEFAULT_DECK && (
-                    <button onClick={() => setDeckSize(DEFAULT_DECK)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_DECK}</button>
-                  )}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={MIN_DECK}
-                max={MAX_DECK}
-                value={deckSize}
-                onChange={(e) => setDeckSize(Number(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>{MIN_DECK}</span>
-                <span>{MAX_DECK}</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span>Wrong claim cooldown</span>
-                <span className="flex items-center gap-1.5">
-                  <span className={wrongClaimPenaltyMs !== DEFAULT_WRONG_MS ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{wrongClaimPenaltyMs}ms</span>
-                  {wrongClaimPenaltyMs !== DEFAULT_WRONG_MS && (
-                    <button onClick={() => setWrongClaimPenaltyMs(DEFAULT_WRONG_MS)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_WRONG_MS}ms</button>
-                  )}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={5000}
-                step={100}
-                value={wrongClaimPenaltyMs}
-                onChange={(e) => setWrongClaimPenaltyMs(Number(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>0ms</span>
-                <span>5000ms</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span>Correct claim lock</span>
-                <span className="flex items-center gap-1.5">
-                  <span className={correctClaimLockMs !== DEFAULT_CORRECT_MS ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{correctClaimLockMs}ms</span>
-                  {correctClaimLockMs !== DEFAULT_CORRECT_MS && (
-                    <button onClick={() => setCorrectClaimLockMs(DEFAULT_CORRECT_MS)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_CORRECT_MS}ms</button>
-                  )}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={5000}
-                step={100}
-                value={correctClaimLockMs}
-                onChange={(e) => setCorrectClaimLockMs(Number(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>0ms</span>
-                <span>5000ms</span>
-              </div>
-            </div>
           </div>
         </div>
       )}

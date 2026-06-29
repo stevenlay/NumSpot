@@ -1,11 +1,33 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
+import type { RoomSettings } from '../types/game'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Copy, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import ChatPanel from '../components/game/ChatPanel'
+import GameShell from '../components/game/GameShell'
+
+const DEFAULT_SETTINGS: RoomSettings = {
+  max_players: 8,
+  deck_size: 57,
+  wrong_claim_penalty_ms: 1500,
+  correct_claim_lock_ms: 2000,
+}
+
+const WRONG_CLAIM_PRESETS = [
+  { label: 'Off', ms: 0 },
+  { label: 'Short', ms: 750 },
+  { label: 'Normal', ms: 1500 },
+  { label: 'Long', ms: 3000 },
+] as const
+
+const CORRECT_CLAIM_PRESETS = [
+  { label: 'Off', ms: 0 },
+  { label: 'Short', ms: 1000 },
+  { label: 'Normal', ms: 2000 },
+  { label: 'Long', ms: 4000 },
+] as const
 
 export default function Lobby() {
   const roomCode = useGameStore((s) => s.roomCode)
@@ -13,7 +35,9 @@ export default function Lobby() {
   const isHost = useGameStore((s) => s.isHost)
   const phase = useGameStore((s) => s.phase)
   const playerId = useGameStore((s) => s.playerId)
+  const settings = useGameStore((s) => s.settings)
   const startGame = useGameStore((s) => s.startGame)
+  const updateSettings = useGameStore((s) => s.updateSettings)
   const goHome = useGameStore((s) => s.goHome)
   const disconnected = useGameStore((s) => s.disconnected)
   const error = useGameStore((s) => s.error)
@@ -34,170 +58,258 @@ export default function Lobby() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <div className="w-full flex items-center justify-between px-6 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
-          <span className="md:hidden text-sm font-black tracking-widest text-foreground">{roomCode}</span>
+    <GameShell
+      sidebarContent={
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Players ({players.length}/{settings.max_players})
+          </span>
+          {players.map((p) => (
+            <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm">
+              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                {p.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="font-medium truncate text-foreground">
+                {p.name}{p.id === playerId ? ' (you)' : ''}
+              </span>
+            </div>
+          ))}
         </div>
-        <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
-          Leave
-        </Button>
-      </div>
+      }
+    >
+      <main className="flex-1 flex flex-col justify-center p-6 overflow-y-auto min-w-0 gap-5">
 
-      {/* Body */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Alerts */}
+        {disconnected && (
+          <Alert variant="destructive" className="w-full">
+            <AlertDescription className="flex items-center justify-between">
+              <span>Connection lost.</span>
+              <button onClick={goHome} className="underline font-semibold ml-2 shrink-0">Return Home</button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {!disconnected && error && (
+          <Alert variant="destructive" className="w-full">
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={resetError} className="underline font-semibold ml-2 shrink-0">Dismiss</button>
+            </AlertDescription>
+          </Alert>
+        )}
 
-        {/* Left sidebar */}
-        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-black tracking-widest text-foreground font-mono">{roomCode}</span>
-              <button
-                onClick={copyCode}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                title={copied ? 'Copied!' : 'Copy code'}
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+        {/* Game over results */}
+        {gameOverToast && (
+          <div className="w-full rounded-xl border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">
+            <div className="flex items-center justify-center gap-2 text-center">
+              <span className="text-2xl">🏆</span>
+              <span className="text-xl font-extrabold text-foreground">
+                {gameOverToast.winner
+                  ? gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`
+                  : 'Game over!'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              {(() => {
+                const sorted = [...gameOverToast.players].sort((a, b) => b.score - a.score)
+                const top3 = sorted.slice(0, 3)
+                const selfRank = sorted.findIndex(p => p.id === playerId)
+                return (
+                  <>
+                    {top3.map((p, i) => (
+                      <div key={p.id} className={cn(
+                        'flex justify-between items-center px-4 py-1.5 rounded-lg font-semibold',
+                        i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
+                        i === 1 && 'bg-slate-100 text-slate-700 text-sm',
+                        i === 2 && 'bg-orange-100 text-orange-800 text-sm',
+                      )}>
+                        <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                        <span>{p.score} pts</span>
+                      </div>
+                    ))}
+                    {selfRank >= 3 && (
+                      <>
+                        <div className="text-center text-xs text-muted-foreground opacity-50 leading-none">···</div>
+                        <div className="flex justify-between items-center text-sm px-4 py-1.5 rounded-lg text-muted-foreground">
+                          <span>{selfRank + 1}. {sorted[selfRank].name} (you)</span>
+                          <span>{sorted[selfRank].score} pts</span>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
+        )}
 
+        {/* Mobile: room code + players */}
+        <div className="md:hidden w-full flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
+            <span className="text-3xl font-black tracking-[0.3em] font-mono">{roomCode}</span>
+            <button
+              onClick={copyCode}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied!' : 'Copy code'}
+            </button>
+          </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Players ({players.length}/8)
+              Players ({players.length}/{settings.max_players})
             </span>
             {players.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm">
-                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+              <div key={p.id} className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
                   {p.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="font-medium truncate text-foreground">
+                <span className="font-medium text-foreground text-sm">
                   {p.name}{p.id === playerId ? ' (you)' : ''}
                 </span>
               </div>
             ))}
           </div>
-        </aside>
+        </div>
 
-        {/* Main */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto min-w-0 gap-5">
+        {/* Settings */}
+        <div className="w-full rounded-xl border border-border bg-card p-6 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Settings</span>
+            {!isHost && <span className="text-[10px] text-muted-foreground">Host only</span>}
+          </div>
 
-          {/* Alerts */}
-          {disconnected && (
-            <Alert variant="destructive" className="w-full max-w-sm">
-              <AlertDescription className="flex items-center justify-between">
-                <span>Connection lost.</span>
-                <button onClick={goHome} className="underline font-semibold ml-2 shrink-0">Return Home</button>
-              </AlertDescription>
-            </Alert>
-          )}
-          {!disconnected && error && (
-            <Alert variant="destructive" className="w-full max-w-sm">
-              <AlertDescription className="flex items-center justify-between">
-                <span>{error}</span>
-                <button onClick={resetError} className="underline font-semibold ml-2 shrink-0">Dismiss</button>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Game over results */}
-          {gameOverToast && (
-            <div className="w-full max-w-sm rounded-xl border border-border bg-card shadow-md px-4 py-3 flex flex-col gap-2">
-              <div className="flex items-center">
-                <span className="font-bold text-foreground">
-                  🏆 {gameOverToast.winner
-                    ? gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`
-                    : 'Game over!'}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {(() => {
-                  const sorted = [...gameOverToast.players].sort((a, b) => b.score - a.score)
-                  const top3 = sorted.slice(0, 3)
-                  const selfRank = sorted.findIndex(p => p.id === playerId)
+          {/* Max players */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Max players</span>
+              <span className={cn('text-sm tabular-nums', settings.max_players !== DEFAULT_SETTINGS.max_players ? 'text-primary font-medium' : 'text-muted-foreground')}>{settings.max_players}</span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {[2, 3, 4, 5, 6, 7, 8].map((n) => {
+                  const tooFew = n < players.length
                   return (
-                    <>
-                      {top3.map((p, i) => (
-                        <div key={p.id} className={cn(
-                          'flex justify-between items-center text-sm px-3 py-1.5 rounded-lg font-semibold',
-                          i === 0 && 'bg-yellow-100 text-yellow-900',
-                          i === 1 && 'bg-slate-100 text-slate-700',
-                          i === 2 && 'bg-orange-100 text-orange-800',
-                        )}>
-                          <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
-                          <span>{p.score} pts</span>
-                        </div>
-                      ))}
-                      {selfRank >= 3 && (
-                        <>
-                          <div className="text-center text-xs text-muted-foreground opacity-50 leading-none">···</div>
-                          <div className="flex justify-between items-center text-sm px-3 py-1.5 rounded-lg text-muted-foreground">
-                            <span>{selfRank + 1}. {sorted[selfRank].name} (you)</span>
-                            <span>{sorted[selfRank].score} pts</span>
-                          </div>
-                        </>
+                    <button
+                      key={n}
+                      onClick={() => !tooFew && updateSettings({ ...settings, max_players: n })}
+                      disabled={tooFew}
+                      className={cn(
+                        'flex-1 text-xs py-1 rounded transition-colors',
+                        tooFew
+                          ? 'bg-muted text-muted-foreground/40 cursor-not-allowed'
+                          : settings.max_players === n
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                       )}
-                    </>
+                    >
+                      {n}
+                    </button>
                   )
-                })()}
+                })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Mobile: room code + players */}
-          <div className="md:hidden w-full max-w-sm flex flex-col gap-4">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
-              <span className="text-3xl font-black tracking-[0.3em] font-mono">{roomCode}</span>
-              <button
-                onClick={copyCode}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Copied!' : 'Copy code'}
-              </button>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Players ({players.length}/8)
+          {/* Deck size */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Deck size</span>
+              <span className={cn('text-sm tabular-nums', settings.deck_size !== DEFAULT_SETTINGS.deck_size ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {settings.deck_size} cards
               </span>
-              {players.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5">
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                    {p.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="font-medium text-foreground text-sm">
-                    {p.name}{p.id === playerId ? ' (you)' : ''}
-                  </span>
-                </div>
-              ))}
             </div>
+            {isHost && (
+              <>
+                <input
+                  type="range"
+                  min={5}
+                  max={57}
+                  value={settings.deck_size}
+                  onChange={(e) => updateSettings({ ...settings, deck_size: Number(e.target.value) })}
+                  className="w-full accent-primary cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>5</span>
+                  <span>57</span>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Start game */}
-          <div className="w-full max-w-sm flex flex-col items-center gap-3">
-            <p className="text-sm text-muted-foreground text-center">
-              {isHost ? 'Ready when you are.' : 'Waiting for the host to start…'}
-            </p>
-            <Button
-              onClick={() => { if (isHost) { setStarting(true); startGame() } }}
-              disabled={!isHost || starting || disconnected}
-              size="lg"
-              className="w-full"
-            >
-              {starting ? 'Starting…' : 'Start Game'}
-            </Button>
+          {/* Wrong claim penalty */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Wrong claim penalty</span>
+              <span className={cn('text-sm', settings.wrong_claim_penalty_ms !== DEFAULT_SETTINGS.wrong_claim_penalty_ms ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {WRONG_CLAIM_PRESETS.find((p) => p.ms === settings.wrong_claim_penalty_ms)?.label ?? `${settings.wrong_claim_penalty_ms}ms`}
+              </span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {WRONG_CLAIM_PRESETS.map((p) => (
+                  <button
+                    key={p.ms}
+                    onClick={() => updateSettings({ ...settings, wrong_claim_penalty_ms: p.ms })}
+                    className={cn(
+                      'flex-1 text-xs py-1 rounded transition-colors',
+                      settings.wrong_claim_penalty_ms === p.ms
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </main>
 
-        {/* Right sidebar — chat */}
-        <ChatPanel />
-      </div>
-    </div>
+          {/* Correct claim lock */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Correct claim lock</span>
+              <span className={cn('text-sm', settings.correct_claim_lock_ms !== DEFAULT_SETTINGS.correct_claim_lock_ms ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {CORRECT_CLAIM_PRESETS.find((p) => p.ms === settings.correct_claim_lock_ms)?.label ?? `${settings.correct_claim_lock_ms}ms`}
+              </span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {CORRECT_CLAIM_PRESETS.map((p) => (
+                  <button
+                    key={p.ms}
+                    onClick={() => updateSettings({ ...settings, correct_claim_lock_ms: p.ms })}
+                    className={cn(
+                      'flex-1 text-xs py-1 rounded transition-colors',
+                      settings.correct_claim_lock_ms === p.ms
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Start game */}
+        <div className="w-full flex flex-col items-center gap-3">
+          <p className="text-sm text-muted-foreground text-center">
+            {isHost ? 'Ready when you are.' : 'Waiting for the host to start…'}
+          </p>
+          <Button
+            onClick={() => { if (isHost) { setStarting(true); startGame() } }}
+            disabled={!isHost || starting || disconnected}
+            size="lg"
+            className="w-full"
+          >
+            {starting ? 'Starting…' : 'Start Game'}
+          </Button>
+        </div>
+      </main>
+    </GameShell>
   )
 }

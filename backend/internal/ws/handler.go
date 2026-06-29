@@ -155,6 +155,10 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 		h.handleRestartGame(c)
 	case MsgDevReset:
 		h.handleDevReset(c)
+	case MsgUpdateSettings:
+		h.handleUpdateSettings(c, msg.Payload)
+	case MsgJoinAsPlayer:
+		h.handleJoinAsPlayer(c)
 	default:
 		h.sendError(c, "unknown message type")
 	}
@@ -186,6 +190,7 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 			PlayerID: c.ID,
 			IsHost:   true,
 			Players:  room.PlayerList(),
+			Settings: room.Settings,
 		},
 	})
 }
@@ -242,6 +247,9 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 						Type:    MsgPlayerJoined,
 						Payload: PlayerJoinedPayload{Player: newPlayer},
 					})
+					room.RLock()
+					settings := room.Settings
+					room.RUnlock()
 					h.sendTo(c, OutboundMessage{
 						Type: MsgRoomJoined,
 						Payload: RoomJoinedPayload{
@@ -249,6 +257,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 							PlayerID:   c.ID,
 							IsHost:     false,
 							Players:    room.PlayerList(),
+							Settings:   settings,
 							CenterCard: centerCard,
 							DeckSize:   deckSize,
 						},
@@ -277,6 +286,9 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 			spectators[i] = SpectatorInfo{ID: s.ID, Name: s.Name}
 		}
 
+		room.RLock()
+		spectatorSettings := room.Settings
+		room.RUnlock()
 		h.sendTo(c, OutboundMessage{
 			Type: MsgRoomJoined,
 			Payload: RoomJoinedPayload{
@@ -285,6 +297,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 				IsHost:      false,
 				IsSpectator: true,
 				Players:     room.PlayerList(),
+				Settings:    spectatorSettings,
 				CenterCard:  centerCard,
 				DeckSize:    deckSize,
 				Spectators:  spectators,
@@ -317,6 +330,9 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	lastGamePlayers := room.LastGamePlayers
 	room.RUnlock()
 
+	room.RLock()
+	joinerSettings := room.Settings
+	room.RUnlock()
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
@@ -324,6 +340,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 			PlayerID:        c.ID,
 			IsHost:          false,
 			Players:         room.PlayerList(),
+			Settings:        joinerSettings,
 			LastWinnerID:    lastWinnerID,
 			LastGamePlayers: lastGamePlayers,
 		},
@@ -356,17 +373,6 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 		if dev, ok := payload["dev"].(map[string]interface{}); ok {
 			if v, ok := dev["skip_countdown"].(bool); ok {
 				opts.SkipCountdown = v
-			}
-			if v, ok := dev["deck_size"].(float64); ok {
-				opts.DeckSize = int(v)
-			}
-			if v, ok := dev["wrong_claim_penalty_ms"].(float64); ok {
-				ms := int(v)
-				opts.WrongClaimPenaltyMs = &ms
-			}
-			if v, ok := dev["correct_claim_lock_ms"].(float64); ok {
-				ms := int(v)
-				opts.CorrectClaimLockMs = &ms
 			}
 		}
 	}
@@ -456,6 +462,99 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 			})
 		}
 	}
+}
+
+func (h *Handler) handleJoinAsPlayer(c *WSClient) {
+	if c.RoomCode == "" || !c.IsSpectator {
+		return
+	}
+
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		return
+	}
+
+	room.RLock()
+	state := room.State
+	room.RUnlock()
+
+	if state != game.StateWaiting {
+		h.sendError(c, "game is already in progress")
+		return
+	}
+
+	// Remove from spectators first so AddPlayer's count check sees the right number.
+	room.RemoveSpectator(c.ID)
+
+	if err := room.AddPlayer(c.ID, c.Name); err != nil {
+		// Room is full — put them back as a spectator and report the error.
+		room.AddSpectator(c.ID, c.Name, c)
+		h.sendError(c, err.Error())
+		return
+	}
+
+	room.RegisterClient(c.ID, c)
+	c.IsSpectator = false
+
+	room.RLock()
+	newPlayer := room.Players[c.ID]
+	room.RUnlock()
+
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type:    MsgSpectatorLeft,
+		Payload: SpectatorLeftPayload{SpectatorID: c.ID},
+	})
+	h.broadcastExcept(c.RoomCode, c.ID, OutboundMessage{
+		Type:    MsgPlayerJoined,
+		Payload: PlayerJoinedPayload{Player: newPlayer},
+	})
+	h.sendTo(c, OutboundMessage{
+		Type:    MsgJoinedAsPlayer,
+		Payload: JoinedAsPlayerPayload{Player: newPlayer},
+	})
+}
+
+func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface{}) {
+	if c.RoomCode == "" {
+		h.sendError(c, "not in a room")
+		return
+	}
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		h.sendError(c, "room not found")
+		return
+	}
+
+	room.RLock()
+	isHost := room.HostID == c.PlayerID
+	state := room.State
+	room.RUnlock()
+
+	if !isHost {
+		h.sendError(c, "only host can change settings")
+		return
+	}
+	if state != game.StateWaiting {
+		h.sendError(c, "cannot change settings during game")
+		return
+	}
+
+	maxPlayers, _ := payload["max_players"].(float64)
+	deckSize, _ := payload["deck_size"].(float64)
+	wrongMs, _ := payload["wrong_claim_penalty_ms"].(float64)
+	correctMs, _ := payload["correct_claim_lock_ms"].(float64)
+
+	clamped := room.UpdateSettings(game.RoomSettings{
+		MaxPlayers:          int(maxPlayers),
+		DeckSize:            int(deckSize),
+		WrongClaimPenaltyMs: int(wrongMs),
+		CorrectClaimLockMs:  int(correctMs),
+	})
+
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type:    MsgSettingsUpdated,
+		Payload: clamped,
+	})
 }
 
 func (h *Handler) handleDevReset(c *WSClient) {

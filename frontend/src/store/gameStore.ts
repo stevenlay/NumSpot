@@ -5,6 +5,7 @@ import type {
   Player,
   Spectator,
   WsMessage,
+  RoomSettings,
   RoomJoinedPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
@@ -18,6 +19,13 @@ import type {
   ChatEntry,
 } from '../types/game'
 
+const DEFAULT_SETTINGS: RoomSettings = {
+  max_players: 8,
+  deck_size: 57,
+  wrong_claim_penalty_ms: 1500,
+  correct_claim_lock_ms: 2000,
+}
+
 const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 const WS_URL = import.meta.env.VITE_WS_URL || `${proto}://${window.location.host}/ws`
 
@@ -30,6 +38,7 @@ export interface GameStore {
   isSpectator: boolean
   players: Player[]
   spectators: Spectator[]
+  settings: RoomSettings
   centerCard: number[]
   deckSize: number
   countdown: number | null
@@ -48,6 +57,8 @@ export interface GameStore {
   restartGame: () => void
   claim: (symbol: number) => void
   sendChat: (text: string) => void
+  updateSettings: (settings: RoomSettings) => void
+  joinAsPlayer: () => void
   resetError: () => void
   dismissGameOverToast: () => void
   goHome: () => void
@@ -85,6 +96,7 @@ function handleMessage(
           isSpectator: true,
           players: p.players,
           spectators: p.spectators ?? [],
+          settings: p.settings ?? DEFAULT_SETTINGS,
           centerCard: p.center_card ?? [],
           deckSize: p.deck_size ?? 0,
           disconnected: false,
@@ -100,6 +112,7 @@ function handleMessage(
           isHost: p.is_host,
           isSpectator: false,
           players: p.players,
+          settings: p.settings ?? DEFAULT_SETTINGS,
           disconnected: false,
           gameOverToast,
         })
@@ -154,10 +167,10 @@ function handleMessage(
         const isSelf = get().playerId === p.player_id
         addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`, { claimMissed: true })
       }
-      const dev = import.meta.env.DEV ? useDevStore.getState() : null
+      const { settings } = get()
       const clearDelay = p.correct
-        ? (dev?.correctClaimLockMs ?? 2000)
-        : (dev?.wrongClaimPenaltyMs ?? 1500)
+        ? settings.correct_claim_lock_ms
+        : settings.wrong_claim_penalty_ms
       setTimeout(() => set({
         lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
@@ -223,6 +236,18 @@ function handleMessage(
       set((s) => ({ chatMessages: [...s.chatMessages, entry] }))
       break
     }
+    case 'joined_as_player': {
+      const p = msg.payload as { player: Player }
+      set((s) => ({
+        isSpectator: false,
+        players: [...s.players, p.player],
+      }))
+      break
+    }
+    case 'settings_updated': {
+      set({ settings: msg.payload as RoomSettings })
+      break
+    }
     case 'error': {
       const p = msg.payload as { message: string }
       set({ error: p.message })
@@ -256,6 +281,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isSpectator: false,
   players: [],
   spectators: [],
+  settings: DEFAULT_SETTINGS,
   centerCard: [],
   deckSize: 0,
   countdown: null,
@@ -318,7 +344,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const dev = import.meta.env.DEV ? useDevStore.getState() : null
     ws.send(JSON.stringify({
       type: 'start_game',
-      payload: dev ? { dev: { skip_countdown: dev.skipCountdown, deck_size: dev.deckSize, wrong_claim_penalty_ms: dev.wrongClaimPenaltyMs, correct_claim_lock_ms: dev.correctClaimLockMs } } : {},
+      payload: dev ? { dev: { skip_countdown: dev.skipCountdown } } : {},
     }))
   },
 
@@ -340,6 +366,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     ws.send(JSON.stringify({ type: 'chat_send', payload: { text } }))
   },
 
+  joinAsPlayer: () => {
+    const ws = get()._ws
+    if (!ws) return
+    ws.send(JSON.stringify({ type: 'join_as_player', payload: {} }))
+  },
+
+  updateSettings: (settings: RoomSettings) => {
+    const ws = get()._ws
+    if (!ws) return
+    set({ settings })
+    ws.send(JSON.stringify({ type: 'update_settings', payload: settings }))
+  },
+
   resetError: () => set({ error: null }),
 
   goHome: () => {
@@ -354,6 +393,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isSpectator: false,
       players: [],
       spectators: [],
+      settings: DEFAULT_SETTINGS,
       centerCard: [],
       deckSize: 0,
       countdown: null,

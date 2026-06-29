@@ -36,12 +36,20 @@ export interface WsMessage {
   payload: unknown
 }
 
+export interface RoomSettings {
+  max_players: number
+  deck_size: number
+  wrong_claim_penalty_ms: number
+  correct_claim_lock_ms: number
+}
+
 export interface RoomJoinedPayload {
   room_code: string
   player_id: string
   is_host: boolean
   is_spectator: boolean
   players: Player[]
+  settings: RoomSettings
   center_card?: number[]
   deck_size?: number
   spectators?: Spectator[]
