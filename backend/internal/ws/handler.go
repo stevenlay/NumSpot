@@ -361,10 +361,12 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 				opts.DeckSize = int(v)
 			}
 			if v, ok := dev["wrong_claim_penalty_ms"].(float64); ok {
-				opts.WrongClaimPenaltyMs = int(v)
+				ms := int(v)
+				opts.WrongClaimPenaltyMs = &ms
 			}
 			if v, ok := dev["correct_claim_lock_ms"].(float64); ok {
-				opts.CorrectClaimLockMs = int(v)
+				ms := int(v)
+				opts.CorrectClaimLockMs = &ms
 			}
 		}
 	}

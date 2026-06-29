@@ -181,9 +181,9 @@ func (r *Room) PlayerList() []*Player {
 // StartGameOptions holds optional overrides for game start (used by dev tools).
 type StartGameOptions struct {
 	SkipCountdown       bool
-	DeckSize            int // 0 = full deck (57 cards)
-	WrongClaimPenaltyMs   int // 0 = use default (1500ms)
-	CorrectClaimLockMs    int // 0 = use default (2000ms)
+	DeckSize            int  // 0 = full deck (57 cards)
+	WrongClaimPenaltyMs *int // nil = use default (1500ms)
+	CorrectClaimLockMs  *int // nil = use default (2000ms)
 }
 
 // AddPlayerMidGame adds a player to an in-progress game and deals them a card from the deck.
@@ -264,13 +264,13 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 
 	r.Deck = deck
 	r.State = StatePlaying
-	if opts.WrongClaimPenaltyMs > 0 {
-		r.wrongClaimDelay = time.Duration(opts.WrongClaimPenaltyMs) * time.Millisecond
+	if opts.WrongClaimPenaltyMs != nil {
+		r.wrongClaimDelay = time.Duration(*opts.WrongClaimPenaltyMs) * time.Millisecond
 	} else {
 		r.wrongClaimDelay = wrongClaimPenalty
 	}
-	if opts.CorrectClaimLockMs > 0 {
-		r.correctClaimDelay = time.Duration(opts.CorrectClaimLockMs) * time.Millisecond
+	if opts.CorrectClaimLockMs != nil {
+		r.correctClaimDelay = time.Duration(*opts.CorrectClaimLockMs) * time.Millisecond
 	} else {
 		r.correctClaimDelay = correctClaimLockDuration
 	}

@@ -6,6 +6,9 @@ import { spawnBots, removeAllBots, getBotCount, registerBotCountListener, type B
 
 const MAX_DECK = 57
 const MIN_DECK = 1
+const DEFAULT_DECK = 57
+const DEFAULT_WRONG_MS = 1500
+const DEFAULT_CORRECT_MS = 2000
 
 export default function DevPanel() {
   const [open, setOpen] = useState(false)
@@ -140,7 +143,12 @@ export default function DevPanel() {
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-center justify-between">
                 <span>Deck size</span>
-                <span className="text-muted-foreground tabular-nums">{deckSize}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className={deckSize !== DEFAULT_DECK ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{deckSize}</span>
+                  {deckSize !== DEFAULT_DECK && (
+                    <button onClick={() => setDeckSize(DEFAULT_DECK)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_DECK}</button>
+                  )}
+                </span>
               </div>
               <input
                 type="range"
@@ -159,7 +167,12 @@ export default function DevPanel() {
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-center justify-between">
                 <span>Wrong claim cooldown</span>
-                <span className="text-muted-foreground tabular-nums">{wrongClaimPenaltyMs}ms</span>
+                <span className="flex items-center gap-1.5">
+                  <span className={wrongClaimPenaltyMs !== DEFAULT_WRONG_MS ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{wrongClaimPenaltyMs}ms</span>
+                  {wrongClaimPenaltyMs !== DEFAULT_WRONG_MS && (
+                    <button onClick={() => setWrongClaimPenaltyMs(DEFAULT_WRONG_MS)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_WRONG_MS}ms</button>
+                  )}
+                </span>
               </div>
               <input
                 type="range"
@@ -179,7 +192,12 @@ export default function DevPanel() {
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex items-center justify-between">
                 <span>Correct claim lock</span>
-                <span className="text-muted-foreground tabular-nums">{correctClaimLockMs}ms</span>
+                <span className="flex items-center gap-1.5">
+                  <span className={correctClaimLockMs !== DEFAULT_CORRECT_MS ? 'text-primary font-medium tabular-nums' : 'text-muted-foreground tabular-nums'}>{correctClaimLockMs}ms</span>
+                  {correctClaimLockMs !== DEFAULT_CORRECT_MS && (
+                    <button onClick={() => setCorrectClaimLockMs(DEFAULT_CORRECT_MS)} className="text-[10px] text-muted-foreground hover:text-foreground underline">↩ {DEFAULT_CORRECT_MS}ms</button>
+                  )}
+                </span>
               </div>
               <input
                 type="range"
