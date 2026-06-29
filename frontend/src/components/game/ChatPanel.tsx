@@ -28,8 +28,8 @@ export default function ChatPanel() {
 
   return (
     <aside className="hidden lg:flex lg:w-96 shrink-0 border-l border-border flex-col overflow-hidden">
-      <div className="px-4 py-3 border-b border-border shrink-0">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chat</span>
+      <div className="px-4 py-4 border-b border-border shrink-0 flex items-center">
+        <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Chat</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2 min-h-0">
