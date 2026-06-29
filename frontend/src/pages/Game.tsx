@@ -4,11 +4,10 @@ import { useGameStore } from '../store/gameStore'
 import { useDevStore } from '../store/devStore'
 import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
-import ChatPanel from '../components/game/ChatPanel'
+import GameShell from '../components/game/GameShell'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { Copy, Check, LogOut, MessageCircle } from 'lucide-react'
 
 export default function Game() {
   const navigate = useNavigate()
@@ -30,28 +29,6 @@ export default function Game() {
   const disconnected = useGameStore((s) => s.disconnected)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [chatOpen, setChatOpen] = useState(false)
-  const [lastSeenCount, setLastSeenCount] = useState(0)
-
-  const chatMessages = useGameStore((s) => s.chatMessages)
-  const unreadCount = chatOpen ? 0 : Math.max(0, chatMessages.length - lastSeenCount)
-
-  const openChat = () => {
-    setChatOpen(true)
-    setLastSeenCount(chatMessages.length)
-  }
-  const closeChat = () => {
-    setChatOpen(false)
-    setLastSeenCount(chatMessages.length)
-  }
-
-  const copyCode = () => {
-    const url = `${window.location.origin}/join/${roomCode}`
-    navigator.clipboard.writeText(url).catch(() => { })
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const myPlayer = players.find((p) => p.id === playerId)
   const myCard = myPlayer?.card ?? []
@@ -59,15 +36,11 @@ export default function Game() {
   const showToast = lastClaim?.correct === true
   const claimantName = lastClaim ? (players.find((p) => p.id === lastClaim.playerId)?.name ?? 'Someone') : ''
   const toastText = lastClaim?.correct
-    ? lastClaim.playerId === playerId
-      ? '✓ Correct! +1'
-      : `${claimantName} got it!`
+    ? lastClaim.playerId === playerId ? '✓ Correct! +1' : `${claimantName} got it!`
     : null
 
   useEffect(() => {
-    return () => {
-      if (toastRef.current) clearTimeout(toastRef.current)
-    }
+    return () => { if (toastRef.current) clearTimeout(toastRef.current) }
   }, [])
 
   useEffect(() => {
@@ -86,7 +59,6 @@ export default function Game() {
     if (claimSent) return
     setClaimSent(true)
     claim(symbol)
-    // Safety reset for rejected claims (no server response sent back)
     setTimeout(() => setClaimSent(false), 2000)
   }
 
@@ -97,13 +69,10 @@ export default function Game() {
     : null
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <>
       {countdown !== null && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm">
-          <span
-            key={countdown}
-            className="text-8xl font-black text-blue-500 animate-card-in"
-          >
+          <span key={countdown} className="text-8xl font-black text-blue-500 animate-card-in">
             {countdown === 0 ? 'Go!' : countdown}
           </span>
           {countdown > 0 && (
@@ -127,100 +96,64 @@ export default function Game() {
         </div>
       )}
 
-      {disconnected && (
-        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
-          <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
-            <span>Connection lost — you were removed from the game.</span>
-            <button
-              onClick={goHome}
-              className="underline font-semibold ml-2 shrink-0"
-            >
-              Return Home
-            </button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Header */}
-      <div className="w-full flex items-center justify-between px-6 py-3 border-b border-border">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
-          <button onClick={copyCode} className="md:hidden flex items-center gap-1.5 text-sm font-black tracking-widest text-foreground hover:text-muted-foreground transition-colors">
-            {roomCode}
-            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 opacity-50" />}
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          {isSpectator && (
-            <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
-          )}
-          {spectators.length > 0 && (
-            <span className="md:hidden text-xs text-muted-foreground">{spectators.length} spectating</span>
-          )}
-          <Button variant="outline" size="sm" onClick={goHome} className="flex items-center gap-1.5 text-xs">
-            <LogOut className="w-3.5 h-3.5" />
-            Leave
-          </Button>
-        </div>
-      </div>
-
-      {/* Body: sidebar + main */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-
-        {/* Left sidebar — hidden on small screens */}
-        <aside className="hidden md:flex md:w-80 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-black tracking-widest text-foreground font-mono">{roomCode}</span>
-              <button
-                onClick={copyCode}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                title={copied ? 'Copied!' : 'Copy code'}
-              >
-                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+      <GameShell
+        banner={disconnected && (
+          <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+            <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
+              <span>Connection lost — you were removed from the game.</span>
+              <button onClick={goHome} className="underline font-semibold ml-2 shrink-0">Return Home</button>
+            </AlertDescription>
+          </Alert>
+        )}
+        headerExtras={
+          <>
+            {isSpectator && (
+              <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
+            )}
+            {spectators.length > 0 && (
+              <span className="md:hidden text-xs text-muted-foreground">{spectators.length} spectating</span>
+            )}
+          </>
+        }
+        sidebarContent={
+          <>
+            <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
+            {spectators.length > 0 && (
+              <div className="flex flex-col gap-1.5 mt-4">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spectating</h2>
+                {spectators.map((s) => (
+                  <div key={s.id} className="px-3 py-2 rounded-lg text-sm bg-muted/50 text-muted-foreground truncate">
+                    {s.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        }
+        centerBanner={
+          <>
+            {!isSpectator && (
+              <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-blue-50 text-blue-700 px-6 py-4 text-sm shrink-0">
+                <span className="shrink-0">💡</span>
+                <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+              </div>
+            )}
+            <div className="w-full flex items-center justify-center gap-3 border-b border-border bg-muted px-6 py-2.5 shrink-0">
+              <span className="text-2xl font-black tabular-nums text-foreground">
+                {isSpectator
+                  ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
+                  : (myPlayer?.cards_left ?? 0)}
+              </span>
+              <span className="text-sm font-semibold text-muted-foreground">
+                {isSpectator ? 'cards left' : 'cards left in your deck'}
+              </span>
             </div>
-          </div>
-          <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
-          {spectators.length > 0 && (
-            <div className="flex flex-col gap-1.5 mt-4">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spectating</h2>
-              {spectators.map((s) => (
-                <div key={s.id} className="px-3 py-2 rounded-lg text-sm bg-muted/50 text-muted-foreground truncate">
-                  {s.name}
-                </div>
-              ))}
+            <div className="md:hidden border-b border-border px-4 py-2 shrink-0">
+              <Scoreboard players={players} currentPlayerId={playerId ?? ''} layout="horizontal" />
             </div>
-          )}
-        </aside>
-
-        {/* Center column: banners + main content */}
-        <div className="flex-1 flex flex-col min-h-0 min-w-0">
-          {/* How to play banner */}
-          {!isSpectator && (
-            <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-blue-50 text-blue-700 px-6 py-4 text-sm shrink-0">
-              <span className="shrink-0">💡</span>
-              <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
-            </div>
-          )}
-
-          {/* Cards left banner */}
-          <div className="w-full flex items-center justify-center gap-3 border-b border-border bg-muted px-6 py-2.5 shrink-0">
-            <span className="text-2xl font-black tabular-nums text-foreground">
-              {isSpectator
-                ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
-                : (myPlayer?.cards_left ?? 0)}
-            </span>
-            <span className="text-sm font-semibold text-muted-foreground">{isSpectator ? 'cards left' : 'cards left in your deck'}</span>
-          </div>
-
-          {/* Mobile scoreboard strip */}
-          <div className="md:hidden border-b border-border px-4 py-2 shrink-0">
-            <Scoreboard players={players} currentPlayerId={playerId ?? ''} layout="horizontal" />
-          </div>
-
-        {/* Main content */}
+          </>
+        }
+      >
         {phase === 'finished' && gameOverToast ? (
           <main className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto min-w-0">
             <div className="w-full max-w-md flex flex-col gap-5">
@@ -228,9 +161,7 @@ export default function Game() {
                 <span className="text-5xl">🏆</span>
                 <h2 className="text-2xl font-extrabold mt-2">
                   {gameOverToast.winner
-                    ? gameOverToast.winner.id === playerId
-                      ? 'You won!'
-                      : `${gameOverToast.winner.name} wins!`
+                    ? gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`
                     : 'Game over!'}
                 </h2>
               </div>
@@ -254,98 +185,72 @@ export default function Game() {
                   ))}
               </div>
               {isHost ? (
-                <Button size="lg" className="w-full" onClick={restartGame}>
-                  Play Again
-                </Button>
+                <Button size="lg" className="w-full" onClick={restartGame}>Play Again</Button>
               ) : (
-                <p className="text-center text-sm text-muted-foreground">
-                  Waiting for the host to start a new game…
-                </p>
+                <p className="text-center text-sm text-muted-foreground">Waiting for the host to start a new game…</p>
               )}
             </div>
           </main>
         ) : (
-        <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
-          <div className="w-full max-w-md flex flex-col gap-4">
-            <div className="flex flex-col gap-10 pt-8">
-              <div className="flex flex-col gap-1.5">
-                <NumberCard
-                  key={centerCard.join(',')}
-                  numbers={centerCard}
-                  label="Center Card"
-                  highlightNumber={highlightNum}
-                  clickable={false}
-                  className="w-full animate-card-in"
-                />
-                {lastClaim?.correct && (
-                  <div className="flex flex-col gap-1.5">
-                    <div className="h-2 w-full rounded-full bg-green-100 overflow-hidden">
-                      <div
-                        key={lastClaim.symbol}
-                        className="h-full bg-green-500 rounded-full"
-                        style={{ animation: `penalty-fill ${settings.correct_claim_lock_ms}ms linear forwards` }}
-                      />
-                    </div>
-                    <p className="text-center text-sm font-medium text-green-600">Next round starting…</p>
-                  </div>
-                )}
-              </div>
-
-              {isSpectator ? (
-                <div className="flex flex-col items-center gap-3 py-6 border border-dashed border-border">
-                  <p className="text-center text-muted-foreground text-sm">You are spectating — watch the action above.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
+          <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
+            <div className="w-full max-w-md flex flex-col gap-4">
+              <div className="flex flex-col gap-10 pt-8">
+                <div className="flex flex-col gap-1.5">
                   <NumberCard
-                    numbers={myCard}
-                    label="Your Card — tap the matching number!"
-                    onClaim={handleClaim}
-                    clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
-                    highlightNumber={answerNum ?? highlightNum}
-                    className="w-full"
+                    key={centerCard.join(',')}
+                    numbers={centerCard}
+                    label="Center Card"
+                    highlightNumber={highlightNum}
+                    clickable={false}
+                    className="w-full animate-card-in"
                   />
-                  {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
+                  {lastClaim?.correct && (
                     <div className="flex flex-col gap-1.5">
-                      <div className="h-2 w-full rounded-full bg-red-100 overflow-hidden">
+                      <div className="h-2 w-full rounded-full bg-green-100 overflow-hidden">
                         <div
                           key={lastClaim.symbol}
-                          className="h-full bg-red-500 rounded-full"
-                          style={{
-                            animation: `penalty-fill ${settings.wrong_claim_penalty_ms}ms linear forwards`,
-                          }}
+                          className="h-full bg-green-500 rounded-full"
+                          style={{ animation: `penalty-fill ${settings.correct_claim_lock_ms}ms linear forwards` }}
                         />
                       </div>
-                      <p className="text-center text-sm font-medium text-red-500">Wrong guess, please wait</p>
+                      <p className="text-center text-sm font-medium text-green-600">Next round starting…</p>
                     </div>
                   )}
                 </div>
-              )}
+
+                {isSpectator ? (
+                  <div className="flex flex-col items-center gap-3 py-6 border border-dashed border-border">
+                    <p className="text-center text-muted-foreground text-sm">You are spectating — watch the action above.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <NumberCard
+                      numbers={myCard}
+                      label="Your Card — tap the matching number!"
+                      onClaim={handleClaim}
+                      clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
+                      highlightNumber={answerNum ?? highlightNum}
+                      className="w-full"
+                    />
+                    {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="h-2 w-full rounded-full bg-red-100 overflow-hidden">
+                          <div
+                            key={lastClaim.symbol}
+                            className="h-full bg-red-500 rounded-full"
+                            style={{ animation: `penalty-fill ${settings.wrong_claim_penalty_ms}ms linear forwards` }}
+                          />
+                        </div>
+                        <p className="text-center text-sm font-medium text-red-500">Wrong guess, please wait</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
         )}
-        </div>
-
-        {/* Right sidebar — chat, hidden below lg */}
-        <ChatPanel mobileOpen={chatOpen} onMobileClose={closeChat} />
-
-      </div>
-
-      {/* Floating chat button — mobile only */}
-      <button
-        onClick={openChat}
-        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center"
-        aria-label="Open chat"
-      >
-        <MessageCircle className="w-6 h-6" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
-
-    </div>
+      </GameShell>
+    </>
   )
 }

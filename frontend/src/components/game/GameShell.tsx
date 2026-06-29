@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useGameStore } from '../../store/gameStore'
 import { Button } from '@/components/ui/button'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, LogOut, MessageCircle } from 'lucide-react'
 import ChatPanel from './ChatPanel'
 
 interface GameShellProps {
@@ -20,13 +20,28 @@ interface GameShellProps {
 export default function GameShell({ banner, headerExtras, sidebarContent, centerBanner, children }: GameShellProps) {
   const roomCode = useGameStore((s) => s.roomCode)
   const goHome = useGameStore((s) => s.goHome)
+  const chatMessages = useGameStore((s) => s.chatMessages)
   const [copied, setCopied] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [lastSeenCount, setLastSeenCount] = useState(0)
+
+  const unreadCount = chatOpen ? 0 : Math.max(0, chatMessages.length - lastSeenCount)
 
   const copyCode = () => {
     const url = `${window.location.origin}/join/${roomCode}`
     navigator.clipboard.writeText(url).catch(() => { })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const openChat = () => {
+    setChatOpen(true)
+    setLastSeenCount(chatMessages.length)
+  }
+
+  const closeChat = () => {
+    setChatOpen(false)
+    setLastSeenCount(chatMessages.length)
   }
 
   return (
@@ -47,7 +62,8 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
         </div>
         <div className="flex items-center gap-3">
           {headerExtras}
-          <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
+          <Button variant="outline" size="sm" onClick={goHome} className="flex items-center gap-1.5 text-xs">
+            <LogOut className="w-3.5 h-3.5" />
             Leave
           </Button>
         </div>
@@ -78,8 +94,22 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
           {children}
         </div>
 
-        <ChatPanel />
+        <ChatPanel mobileOpen={chatOpen} onMobileClose={closeChat} />
       </div>
+
+      {/* Floating chat button — mobile only */}
+      <button
+        onClick={openChat}
+        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center"
+        aria-label="Open chat"
+      >
+        <MessageCircle className="w-6 h-6" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
     </div>
   )
 }
