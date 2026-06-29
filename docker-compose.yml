@@ -1,15 +1,55 @@
 version: '3.9'
+
 services:
+  traefik:
+    image: traefik:v3
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.duckdns.acme.dnschallenge=true
+      - --certificatesresolvers.duckdns.acme.dnschallenge.provider=duckdns
+      - --certificatesresolvers.duckdns.acme.dnschallenge.resolvers=8.8.8.8:53
+      - --certificatesresolvers.duckdns.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.duckdns.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    restart: unless-stopped
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    environment:
+      - SUBDOMAINS=numspot
+      - TOKEN=${DUCKDNS_TOKEN}
+      - TZ=UTC
+    restart: unless-stopped
+
   backend:
     build: ./backend
-    ports:
-      - "8080:8080"
     environment:
       - GIN_MODE=release
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
-    ports:
-      - "3000:80"
     depends_on:
       - backend
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=duckdns"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+volumes:
+  letsencrypt:
