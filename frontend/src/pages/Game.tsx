@@ -133,22 +133,22 @@ export default function Game() {
         centerBanner={
           <>
             {!isSpectator && (
-              <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-blue-50 text-blue-700 px-6 py-4 text-sm shrink-0">
+              <div className="hidden sm:flex w-full items-center justify-center gap-2 border-b border-border bg-blue-50 text-blue-700 px-6 py-4 text-sm shrink-0">
                 <span className="shrink-0">💡</span>
                 <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
               </div>
             )}
-            <div className="w-full flex items-center justify-center gap-3 border-b border-border bg-muted px-6 py-2.5 shrink-0">
-              <span className="text-2xl font-black tabular-nums text-foreground">
+            <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-1.5 sm:py-2.5 shrink-0">
+              <span className="text-xl sm:text-2xl font-black tabular-nums text-foreground">
                 {isSpectator
                   ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
                   : (myPlayer?.cards_left ?? 0)}
               </span>
-              <span className="text-sm font-semibold text-muted-foreground">
+              <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
                 {isSpectator ? 'cards left' : 'cards left in your deck'}
               </span>
             </div>
-            <div className="md:hidden border-b border-border px-4 py-2 shrink-0">
+            <div className="md:hidden border-b border-border px-3 py-1.5 shrink-0 overflow-x-auto">
               <Scoreboard players={players} currentPlayerId={playerId ?? ''} layout="horizontal" />
             </div>
           </>
@@ -192,9 +192,9 @@ export default function Game() {
             </div>
           </main>
         ) : (
-          <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
+          <main className="flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto min-w-0">
             <div className="w-full max-w-md flex flex-col gap-4">
-              <div className="flex flex-col gap-10 pt-8">
+              <div className="flex flex-col gap-4 sm:gap-10 pt-2 sm:pt-8">
                 <div className="flex flex-col gap-1.5">
                   <NumberCard
                     key={centerCard.join(',')}

@@ -25,7 +25,8 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
   const [chatOpen, setChatOpen] = useState(false)
   const [lastSeenCount, setLastSeenCount] = useState(0)
 
-  const unreadCount = chatOpen ? 0 : Math.max(0, chatMessages.length - lastSeenCount)
+  const chatCount = chatMessages.filter((m) => m.kind === 'chat').length
+  const unreadCount = chatOpen ? 0 : Math.max(0, chatCount - lastSeenCount)
 
   const copyCode = () => {
     const url = `${window.location.origin}/join/${roomCode}`
@@ -36,16 +37,16 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
 
   const openChat = () => {
     setChatOpen(true)
-    setLastSeenCount(chatMessages.length)
+    setLastSeenCount(chatCount)
   }
 
   const closeChat = () => {
     setChatOpen(false)
-    setLastSeenCount(chatMessages.length)
+    setLastSeenCount(chatCount)
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
       {banner}
 
       {/* Header */}
@@ -54,14 +55,26 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
           <h1 className="text-xl font-extrabold"><span className="text-blue-500">NumSpot</span></h1>
           <button
             onClick={copyCode}
-            className="md:hidden flex items-center gap-1.5 text-sm font-black tracking-widest text-foreground hover:text-muted-foreground transition-colors"
+            className="md:hidden flex items-center gap-1.5 text-sm font-black font-mono tracking-widest text-foreground hover:text-muted-foreground transition-colors"
           >
             {roomCode}
             {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5 opacity-50" />}
           </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {headerExtras}
+          <button
+            onClick={openChat}
+            className="lg:hidden relative flex items-center justify-center w-8 h-8 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Open chat"
+          >
+            <MessageCircle className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
           <Button variant="outline" size="sm" onClick={goHome} className="flex items-center gap-1.5 text-xs">
             <LogOut className="w-3.5 h-3.5" />
             Leave
@@ -97,19 +110,6 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
         <ChatPanel mobileOpen={chatOpen} onMobileClose={closeChat} />
       </div>
 
-      {/* Floating chat button — mobile only */}
-      <button
-        onClick={openChat}
-        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center"
-        aria-label="Open chat"
-      >
-        <MessageCircle className="w-6 h-6" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
     </div>
   )
 }
