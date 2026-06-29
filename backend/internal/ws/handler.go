@@ -210,7 +210,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 
 	room, ok := h.manager.GetRoom(code)
 	if !ok {
-		h.sendError(c, "room not found")
+		h.sendError(c, "Room not found.")
 		return
 	}
 
@@ -391,7 +391,7 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 
 	room, ok := h.manager.GetRoom(c.RoomCode)
 	if !ok {
-		h.sendError(c, "room not found")
+		h.sendError(c, "Room not found.")
 		return
 	}
 
@@ -451,7 +451,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 
 	room, ok := h.manager.GetRoom(c.RoomCode)
 	if !ok {
-		h.sendError(c, "room not found")
+		h.sendError(c, "Room not found.")
 		return
 	}
 
@@ -542,7 +542,7 @@ func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface
 	}
 	room, ok := h.manager.GetRoom(c.RoomCode)
 	if !ok {
-		h.sendError(c, "room not found")
+		h.sendError(c, "Room not found.")
 		return
 	}
 
@@ -625,7 +625,7 @@ func (h *Handler) handleRestartGame(c *WSClient) {
 
 	room, ok := h.manager.GetRoom(c.RoomCode)
 	if !ok {
-		h.sendError(c, "room not found")
+		h.sendError(c, "Room not found.")
 		return
 	}
 

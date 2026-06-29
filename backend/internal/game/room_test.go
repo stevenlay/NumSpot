@@ -63,7 +63,7 @@ func TestStartGame(t *testing.T) {
 
 		numPlayers := len(r.Players)
 		cardsPerPlayer := (57 - 1) / numPlayers
-		wantTotalLeft := numPlayers * (cardsPerPlayer - 1) // each player has cardsPerPlayer-1 remaining after their current card
+		wantTotalLeft := numPlayers * cardsPerPlayer // each player has cardsPerPlayer cards (hand + deck)
 		got := r.TotalCardsLeft()
 		if got != wantTotalLeft {
 			t.Errorf("TotalCardsLeft = %d, want %d", got, wantTotalLeft)

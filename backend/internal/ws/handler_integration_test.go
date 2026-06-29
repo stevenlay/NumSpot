@@ -526,9 +526,8 @@ func TestRestartGame_HappyPath(t *testing.T) {
 		symbol := game.FindMatch(myCard, center)
 		sendMsg(t, host, MsgClaim, map[string]any{"symbol": symbol})
 		crRaw := readUntil(t, host, MsgClaimResult)
-		wasLast := cardsLeft == 0
 		parseState(crRaw)
-		if wasLast {
+		if cardsLeft == 0 {
 			break
 		}
 	}

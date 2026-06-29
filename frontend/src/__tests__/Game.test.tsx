@@ -145,7 +145,7 @@ describe('Game', () => {
     it('shows cards remaining', () => {
       setup()
       expect(screen.getByText('5')).toBeInTheDocument()
-      expect(screen.getByText('cards left')).toBeInTheDocument()
+      expect(screen.getByText('cards left in your deck')).toBeInTheDocument()
     })
 
     it('shows the room code', () => {

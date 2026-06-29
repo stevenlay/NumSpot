@@ -357,7 +357,7 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		return ClaimResult{Rejected: true} // spectator or unknown player
 	}
 	if r.State != StatePlaying || r.CenterCard == nil {
-		return ClaimResult{Correct: false}
+		return ClaimResult{Rejected: true}
 	}
 
 	now := time.Now()
@@ -383,6 +383,7 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		p.deck = p.deck[:last]
 		p.CardsLeft = len(p.deck) + 1
 	} else {
+		p.CardsLeft = 0
 		r.State = StateFinished
 	}
 
