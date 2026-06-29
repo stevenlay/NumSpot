@@ -1,5 +1,32 @@
 # Testing
 
+## Backend (Go)
+
+Tests live alongside their package (`room_test.go` next to `room.go`). Run from the `backend` directory:
+
+```bash
+go test ./...
+
+# With verbose output
+go test -v ./...
+```
+
+### What's covered (`internal/game/room_test.go`)
+
+| Area | Cases |
+|------|-------|
+| `StartGame` | State transitions to playing; center card and player cards are dealt; per-player deck sizes are correct; all dealt cards are distinct; error if called twice |
+| `Claim` (correct) | Score increments; player's old card becomes new center; player draws next card from private deck; CardsLeft decrements |
+| `Claim` (wrong) | Score unchanged; center card unchanged; CardsLeft unchanged; player is penalized |
+| Rejection — countdown | Claims rejected while start countdown is active |
+| Rejection — claim lock | Claims rejected during the post-correct-claim lock window |
+| Rejection — penalty | Claims rejected while player is under a wrong-claim penalty |
+| Game over | GameOver=true and State=Finished when a player's private deck is exhausted on a correct claim |
+
+---
+
+## Frontend (JavaScript / React)
+
 ## Stack
 
 - **[Vitest](https://vitest.dev/)** — test runner (Vite-native, Jest-compatible API)

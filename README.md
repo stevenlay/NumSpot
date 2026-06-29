@@ -93,6 +93,11 @@ numspot/
 See [TESTING.md](./TESTING.md) for the full guide.
 
 ```bash
+# Backend
+cd backend
+go test ./...
+
+# Frontend
 cd frontend
 npm run test:run   # single run
 npm test           # watch mode

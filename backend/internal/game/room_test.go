@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -240,4 +241,297 @@ func TestClaim(t *testing.T) {
 			t.Error("WinnerID should be set on game over")
 		}
 	})
+}
+
+func TestAddPlayer(t *testing.T) {
+	t.Run("adds player successfully", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		if err := r.AddPlayer("p2", "Alice"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := r.Players["p2"]; !ok {
+			t.Error("player p2 not found after AddPlayer")
+		}
+	})
+
+	t.Run("error if game already started", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.StartGame(StartGameOptions{})
+		if err := r.AddPlayer("p2", "Alice"); err == nil {
+			t.Error("expected error adding player during game, got nil")
+		}
+	})
+
+	t.Run("error when room is full", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		for i := 0; i < 7; i++ {
+			r.AddPlayer(fmt.Sprintf("p%d", i), fmt.Sprintf("P%d", i))
+		}
+		if err := r.AddPlayer("overflow", "Extra"); err == nil {
+			t.Error("expected error when adding player to full room, got nil")
+		}
+	})
+}
+
+func TestUpdateSettings(t *testing.T) {
+	clamp := func(field string, input, want int, s RoomSettings) {
+		t.Helper()
+		r := NewRoom("TEST", "host", "Host")
+		got := r.UpdateSettings(s)
+		var gotVal int
+		switch field {
+		case "MaxPlayers":
+			gotVal = got.MaxPlayers
+		case "DeckSize":
+			gotVal = got.DeckSize
+		case "WrongClaimPenaltyMs":
+			gotVal = got.WrongClaimPenaltyMs
+		case "CorrectClaimLockMs":
+			gotVal = got.CorrectClaimLockMs
+		}
+		if gotVal != want {
+			t.Errorf("%s: input=%d got=%d want=%d", field, input, gotVal, want)
+		}
+	}
+
+	base := RoomSettings{MaxPlayers: 4, DeckSize: 57, WrongClaimPenaltyMs: 1500, CorrectClaimLockMs: 2000}
+
+	clamp("MaxPlayers", 1, 2, RoomSettings{MaxPlayers: 1, DeckSize: base.DeckSize, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: base.CorrectClaimLockMs})
+	clamp("MaxPlayers", 100, 8, RoomSettings{MaxPlayers: 100, DeckSize: base.DeckSize, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: base.CorrectClaimLockMs})
+	clamp("MaxPlayers", 4, 4, base)
+
+	clamp("DeckSize", 1, 5, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: 1, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: base.CorrectClaimLockMs})
+	clamp("DeckSize", 100, 57, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: 100, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: base.CorrectClaimLockMs})
+
+	clamp("WrongClaimPenaltyMs", -1, 0, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: base.DeckSize, WrongClaimPenaltyMs: -1, CorrectClaimLockMs: base.CorrectClaimLockMs})
+	clamp("WrongClaimPenaltyMs", 10001, 10000, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: base.DeckSize, WrongClaimPenaltyMs: 10001, CorrectClaimLockMs: base.CorrectClaimLockMs})
+	clamp("WrongClaimPenaltyMs", 0, 0, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: base.DeckSize, WrongClaimPenaltyMs: 0, CorrectClaimLockMs: base.CorrectClaimLockMs})
+
+	clamp("CorrectClaimLockMs", -1, 0, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: base.DeckSize, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: -1})
+	clamp("CorrectClaimLockMs", 10001, 10000, RoomSettings{MaxPlayers: base.MaxPlayers, DeckSize: base.DeckSize, WrongClaimPenaltyMs: base.WrongClaimPenaltyMs, CorrectClaimLockMs: 10001})
+
+	t.Run("persists clamped values in room", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.UpdateSettings(RoomSettings{MaxPlayers: 3, DeckSize: 20, WrongClaimPenaltyMs: 500, CorrectClaimLockMs: 1000})
+		if r.Settings.MaxPlayers != 3 {
+			t.Errorf("Settings.MaxPlayers = %d, want 3", r.Settings.MaxPlayers)
+		}
+		if r.Settings.DeckSize != 20 {
+			t.Errorf("Settings.DeckSize = %d, want 20", r.Settings.DeckSize)
+		}
+	})
+}
+
+func TestRemovePlayer(t *testing.T) {
+	t.Run("removes a non-host player", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.AddPlayer("p2", "Alice")
+
+		empty, left, newHostID := r.RemovePlayer("p2")
+
+		if empty {
+			t.Error("expected empty=false")
+		}
+		if !left {
+			t.Error("expected playerLeft=true")
+		}
+		if newHostID != "" {
+			t.Errorf("expected no host transfer, got %q", newHostID)
+		}
+		if _, ok := r.Players["p2"]; ok {
+			t.Error("p2 still present after removal")
+		}
+	})
+
+	t.Run("host transfer when host leaves", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.AddPlayer("p2", "Alice")
+
+		empty, left, newHostID := r.RemovePlayer("host")
+
+		if empty {
+			t.Error("expected empty=false")
+		}
+		if !left {
+			t.Error("expected playerLeft=true")
+		}
+		if newHostID != "p2" {
+			t.Errorf("expected newHostID=p2, got %q", newHostID)
+		}
+		if r.HostID != "p2" {
+			t.Errorf("HostID = %q, want p2", r.HostID)
+		}
+	})
+
+	t.Run("room becomes empty when last player leaves", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		empty, left, _ := r.RemovePlayer("host")
+		if !empty {
+			t.Error("expected empty=true")
+		}
+		if !left {
+			t.Error("expected playerLeft=true")
+		}
+	})
+
+	t.Run("removing non-existent player returns playerLeft=false", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		empty, left, _ := r.RemovePlayer("ghost")
+		if empty {
+			t.Error("expected empty=false")
+		}
+		if left {
+			t.Error("expected playerLeft=false for unknown player")
+		}
+	})
+}
+
+func TestSpectators(t *testing.T) {
+	t.Run("add and list spectators", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.AddSpectator("s1", "Watcher", nil)
+
+		list := r.SpectatorList()
+		if len(list) != 1 {
+			t.Fatalf("SpectatorList len = %d, want 1", len(list))
+		}
+		if list[0].ID != "s1" || list[0].Name != "Watcher" {
+			t.Errorf("spectator = %+v, want {ID:s1 Name:Watcher}", list[0])
+		}
+	})
+
+	t.Run("remove spectator returns empty=false when players remain", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.AddSpectator("s1", "Watcher", nil)
+
+		empty := r.RemoveSpectator("s1")
+		if empty {
+			t.Error("expected empty=false with host still in room")
+		}
+		if len(r.SpectatorList()) != 0 {
+			t.Error("spectator still present after removal")
+		}
+	})
+
+	t.Run("remove spectator returns empty=true when no players or spectators remain", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.RemovePlayer("host")
+		r.AddSpectator("s1", "Watcher", nil)
+
+		empty := r.RemoveSpectator("s1")
+		if !empty {
+			t.Error("expected empty=true")
+		}
+	})
+}
+
+func TestResetToLobby(t *testing.T) {
+	t.Run("error from waiting state", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		if err := r.ResetToLobby(); err == nil {
+			t.Error("expected error resetting from waiting state, got nil")
+		}
+	})
+
+	t.Run("error from playing state", func(t *testing.T) {
+		r := newPlayingRoom(t)
+		if err := r.ResetToLobby(); err == nil {
+			t.Error("expected error resetting from playing state, got nil")
+		}
+	})
+
+	t.Run("succeeds from finished state", func(t *testing.T) {
+		r := newPlayingRoom(t)
+		host := r.Players["host"]
+		host.deck = nil
+		symbol := FindMatch(host.Card, r.CenterCard)
+		r.Claim("host", symbol)
+
+		if err := r.ResetToLobby(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if r.State != StateWaiting {
+			t.Errorf("State = %v, want StateWaiting", r.State)
+		}
+		if r.CenterCard != nil {
+			t.Error("CenterCard should be nil after reset")
+		}
+	})
+
+	t.Run("score cleared and accumulated in session score", func(t *testing.T) {
+		r := newPlayingRoom(t)
+		host := r.Players["host"]
+
+		symbol := FindMatch(host.Card, r.CenterCard)
+		r.Claim("host", symbol)
+		scoreAfterClaim := host.Score
+
+		// Clear the claim lock so the next claim is not rejected.
+		r.claimLockedUntil = time.Time{}
+
+		host.deck = nil
+		symbol2 := FindMatch(host.Card, r.CenterCard)
+		r.Claim("host", symbol2) // triggers game over
+
+		r.ResetToLobby()
+
+		if host.Score != 0 {
+			t.Errorf("Score = %d after reset, want 0", host.Score)
+		}
+		if host.SessionScore != scoreAfterClaim+1 {
+			t.Errorf("SessionScore = %d, want %d", host.SessionScore, scoreAfterClaim+1)
+		}
+	})
+}
+
+func TestForceResetToLobby(t *testing.T) {
+	t.Run("resets from playing state", func(t *testing.T) {
+		r := newPlayingRoom(t)
+		r.Players["host"].Score = 3
+		r.ForceResetToLobby()
+		if r.State != StateWaiting {
+			t.Errorf("State = %v, want StateWaiting", r.State)
+		}
+		if r.CenterCard != nil {
+			t.Error("CenterCard should be nil after reset")
+		}
+		if r.Players["host"].Score != 0 {
+			t.Error("Score should be 0 after reset")
+		}
+		if r.Players["host"].SessionScore != 3 {
+			t.Errorf("SessionScore = %d, want 3", r.Players["host"].SessionScore)
+		}
+	})
+
+	t.Run("resets from waiting state", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.Players["host"].Score = 5
+		r.ForceResetToLobby()
+		if r.State != StateWaiting {
+			t.Errorf("State = %v, want StateWaiting", r.State)
+		}
+		if r.Players["host"].SessionScore != 5 {
+			t.Errorf("SessionScore = %d, want 5", r.Players["host"].SessionScore)
+		}
+	})
+}
+
+func TestSetLastGameResult(t *testing.T) {
+	r := NewRoom("TEST", "host", "Host")
+	players := r.PlayerList()
+
+	r.SetLastGameResult("host", players)
+
+	if r.LastWinnerID != "host" {
+		t.Errorf("LastWinnerID = %q, want host", r.LastWinnerID)
+	}
+	if len(r.LastGamePlayers) != len(players) {
+		t.Fatalf("LastGamePlayers len = %d, want %d", len(r.LastGamePlayers), len(players))
+	}
+
+	// Verify it is a deep copy
+	r.Players["host"].Score = 999
+	if r.LastGamePlayers[0].Score == 999 {
+		t.Error("LastGamePlayers should be a deep copy, not a live reference")
+	}
 }

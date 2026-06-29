@@ -49,6 +49,15 @@ func TestFindMatch(t *testing.T) {
 	}
 }
 
+func TestToDisplay(t *testing.T) {
+	input := []int{0, 1, 6, 56}
+	got := ToDisplay(input)
+	want := []int{1, 2, 7, 57}
+	if !slicesEqual(got, want) {
+		t.Errorf("ToDisplay(%v) = %v, want %v", input, got, want)
+	}
+}
+
 func TestGenerateCards(t *testing.T) {
 	cards := GenerateCards(7)
 
