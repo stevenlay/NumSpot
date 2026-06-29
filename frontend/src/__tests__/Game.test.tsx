@@ -62,11 +62,11 @@ function makeStore(overrides = {}) {
   return {
     phase: 'playing',
     playerId: 'p1',
-    // Use numbers >10 to avoid collision with countdown values (0–3) and deckSize (42)
+    // Use numbers >10 to avoid collision with countdown values (0–3) and cards_left+1 (6)
     players: [makePlayer('p1', 'Alice', [11, 22, 33])],
-    centerCard: [4, 5, 6],
+    centerCard: [14, 25, 36],
     lastClaim: null,
-    deckSize: 10,
+    deckSize: 5,
     countdown: null,
     roomCode: 'ABC123',
     spectators: [] as Spectator[],
@@ -142,9 +142,9 @@ describe('Game', () => {
       expect(cards).toHaveLength(2)
     })
 
-    it('shows the deck size', () => {
-      setup({ deckSize: 42 })
-      expect(screen.getByText('42')).toBeInTheDocument()
+    it('shows cards remaining including card in hand', () => {
+      setup()
+      expect(screen.getByText('6')).toBeInTheDocument() // cards_left(5) + 1 for card in hand
       expect(screen.getByText('cards left')).toBeInTheDocument()
     })
 
