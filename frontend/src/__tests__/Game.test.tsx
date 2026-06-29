@@ -6,6 +6,7 @@ import Game from '../pages/Game'
 import { useGameStore } from '../store/gameStore'
 import { useDevStore } from '../store/devStore'
 import type { GameStore } from '../store/gameStore'
+import type { DevStore } from '../store/devStore'
 import type { Player, Spectator, RoomSettings } from '../types/game'
 
 vi.mock('../store/gameStore')
@@ -85,8 +86,8 @@ function setup(storeOverrides = {}) {
     (selector: (s: GameStore) => unknown) => selector(store as unknown as GameStore)
   )
   vi.mocked(useDevStore).mockImplementation(
-    (selector: (s: { highlightAnswer: boolean; skipCountdown: boolean }) => unknown) =>
-      selector({ highlightAnswer: false, skipCountdown: false })
+    (selector: (s: DevStore) => unknown) =>
+      selector({ highlightAnswer: false, skipCountdown: false, botSpeed: 'medium', setSkipCountdown: () => {}, setHighlightAnswer: () => {}, setBotSpeed: () => {} } as DevStore)
   )
   const user = userEvent.setup()
   render(<MemoryRouter><Game /></MemoryRouter>)

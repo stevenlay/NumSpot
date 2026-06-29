@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { BotSpeed } from '../components/dev/BotPlayer'
 
-interface DevStore {
+export interface DevStore {
   skipCountdown: boolean
   highlightAnswer: boolean
   botSpeed: BotSpeed

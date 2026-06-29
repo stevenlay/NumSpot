@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import Scoreboard from '../components/game/Scoreboard'
 import type { Player } from '../types/game'
