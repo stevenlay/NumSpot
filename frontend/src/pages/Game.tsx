@@ -188,7 +188,7 @@ export default function Game() {
                 ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
                 : (myPlayer?.cards_left ?? 0)}
             </span>
-            <span className="text-sm font-semibold text-muted-foreground">cards left</span>
+            <span className="text-sm font-semibold text-muted-foreground">{isSpectator ? 'cards left' : 'cards left in your deck'}</span>
           </div>
 
         {/* Main content */}
