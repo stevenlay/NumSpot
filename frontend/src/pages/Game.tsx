@@ -17,7 +17,6 @@ export default function Game() {
   const players = useGameStore((s) => s.players)
   const centerCard = useGameStore((s) => s.centerCard)
   const lastClaim = useGameStore((s) => s.lastClaim)
-  const deckSize = useGameStore((s) => s.deckSize)
   const countdown = useGameStore((s) => s.countdown)
   const roomCode = useGameStore((s) => s.roomCode)
   const spectators = useGameStore((s) => s.spectators)
@@ -180,7 +179,11 @@ export default function Game() {
 
           {/* Cards left banner */}
           <div className="w-full flex items-center justify-center gap-3 border-b border-border bg-muted px-6 py-2.5 shrink-0">
-            <span className="text-2xl font-black tabular-nums text-foreground">{deckSize}</span>
+            <span className="text-2xl font-black tabular-nums text-foreground">
+              {isSpectator
+                ? players.reduce((sum, p) => sum + (p.cards_left ?? 0) + 1, 0)
+                : (myPlayer?.cards_left ?? 0) + 1}
+            </span>
             <span className="text-sm font-semibold text-muted-foreground">cards left</span>
           </div>
 
