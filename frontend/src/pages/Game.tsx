@@ -8,7 +8,7 @@ import ChatPanel from '../components/game/ChatPanel'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, LogOut, MessageCircle } from 'lucide-react'
 
 export default function Game() {
   const navigate = useNavigate()
@@ -31,6 +31,20 @@ export default function Game() {
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [lastSeenCount, setLastSeenCount] = useState(0)
+
+  const chatMessages = useGameStore((s) => s.chatMessages)
+  const unreadCount = chatOpen ? 0 : Math.max(0, chatMessages.length - lastSeenCount)
+
+  const openChat = () => {
+    setChatOpen(true)
+    setLastSeenCount(chatMessages.length)
+  }
+  const closeChat = () => {
+    setChatOpen(false)
+    setLastSeenCount(chatMessages.length)
+  }
 
   const copyCode = () => {
     const url = `${window.location.origin}/join/${roomCode}`
@@ -143,7 +157,8 @@ export default function Game() {
           {spectators.length > 0 && (
             <span className="md:hidden text-xs text-muted-foreground">{spectators.length} spectating</span>
           )}
-          <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
+          <Button variant="outline" size="sm" onClick={goHome} className="flex items-center gap-1.5 text-xs">
+            <LogOut className="w-3.5 h-3.5" />
             Leave
           </Button>
         </div>
@@ -156,7 +171,16 @@ export default function Game() {
         <aside className="hidden md:flex md:w-80 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
-            <span className="text-2xl font-black tracking-widest text-foreground">{roomCode}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-black tracking-widest text-foreground font-mono">{roomCode}</span>
+              <button
+                onClick={copyCode}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title={copied ? 'Copied!' : 'Copy code'}
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
           <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
           {spectators.length > 0 && (
@@ -189,6 +213,11 @@ export default function Game() {
                 : (myPlayer?.cards_left ?? 0)}
             </span>
             <span className="text-sm font-semibold text-muted-foreground">{isSpectator ? 'cards left' : 'cards left in your deck'}</span>
+          </div>
+
+          {/* Mobile scoreboard strip */}
+          <div className="md:hidden border-b border-border px-4 py-2 shrink-0">
+            <Scoreboard players={players} currentPlayerId={playerId ?? ''} layout="horizontal" />
           </div>
 
         {/* Main content */}
@@ -299,9 +328,23 @@ export default function Game() {
         </div>
 
         {/* Right sidebar — chat, hidden below lg */}
-        <ChatPanel />
+        <ChatPanel mobileOpen={chatOpen} onMobileClose={closeChat} />
 
       </div>
+
+      {/* Floating chat button — mobile only */}
+      <button
+        onClick={openChat}
+        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center"
+        aria-label="Open chat"
+      >
+        <MessageCircle className="w-6 h-6" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
 
     </div>
   )
