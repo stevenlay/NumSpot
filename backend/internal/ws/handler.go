@@ -146,11 +146,15 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 	case MsgJoinRoom:
 		h.handleJoinRoom(c, msg.Payload)
 	case MsgStartGame:
-		h.handleStartGame(c)
+		h.handleStartGame(c, msg.Payload)
 	case MsgClaim:
 		h.handleClaim(c, msg.Payload)
 	case MsgChatSend:
 		h.handleChat(c, msg.Payload)
+	case MsgRestartGame:
+		h.handleRestartGame(c)
+	case MsgDevReset:
+		h.handleDevReset(c)
 	default:
 		h.sendError(c, "unknown message type")
 	}
@@ -213,6 +217,47 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	room.RUnlock()
 
 	if state != game.StateWaiting {
+		// Dev: allow mid-game join as a player (bots only)
+		if gin.IsDebugging() {
+			if dev, ok := payload["dev"].(map[string]interface{}); ok {
+				if allowMidGame, _ := dev["allow_mid_game"].(bool); allowMidGame {
+					if err := room.AddPlayerMidGame(c.ID, name); err != nil {
+						h.sendError(c, err.Error())
+						return
+					}
+
+					c.Name = name
+					c.RoomCode = code
+					room.RegisterClient(c.ID, c)
+					h.registerClient(code, c)
+
+					room.RLock()
+					centerCard := make([]int, len(room.CenterCard))
+					copy(centerCard, room.CenterCard)
+					deckSize := len(room.Deck)
+					newPlayer := room.Players[c.ID]
+					room.RUnlock()
+
+					h.broadcastExcept(code, c.ID, OutboundMessage{
+						Type:    MsgPlayerJoined,
+						Payload: PlayerJoinedPayload{Player: newPlayer},
+					})
+					h.sendTo(c, OutboundMessage{
+						Type: MsgRoomJoined,
+						Payload: RoomJoinedPayload{
+							RoomCode:   code,
+							PlayerID:   c.ID,
+							IsHost:     false,
+							Players:    room.PlayerList(),
+							CenterCard: centerCard,
+							DeckSize:   deckSize,
+						},
+					})
+					return
+				}
+			}
+		}
+
 		// Game already started — add as spectator
 		c.Name = name
 		c.RoomCode = code
@@ -267,18 +312,25 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 		Payload: PlayerJoinedPayload{Player: newPlayer},
 	})
 
+	room.RLock()
+	lastWinnerID := room.LastWinnerID
+	lastGamePlayers := room.LastGamePlayers
+	room.RUnlock()
+
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
-			RoomCode: code,
-			PlayerID: c.ID,
-			IsHost:   false,
-			Players:  room.PlayerList(),
+			RoomCode:        code,
+			PlayerID:        c.ID,
+			IsHost:          false,
+			Players:         room.PlayerList(),
+			LastWinnerID:    lastWinnerID,
+			LastGamePlayers: lastGamePlayers,
 		},
 	})
 }
 
-func (h *Handler) handleStartGame(c *WSClient) {
+func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 	if c.RoomCode == "" {
 		h.sendError(c, "not in a room")
 		return
@@ -299,7 +351,25 @@ func (h *Handler) handleStartGame(c *WSClient) {
 		return
 	}
 
-	if err := room.StartGame(); err != nil {
+	var opts game.StartGameOptions
+	if gin.IsDebugging() {
+		if dev, ok := payload["dev"].(map[string]interface{}); ok {
+			if v, ok := dev["skip_countdown"].(bool); ok {
+				opts.SkipCountdown = v
+			}
+			if v, ok := dev["deck_size"].(float64); ok {
+				opts.DeckSize = int(v)
+			}
+			if v, ok := dev["wrong_claim_penalty_ms"].(float64); ok {
+				opts.WrongClaimPenaltyMs = int(v)
+			}
+			if v, ok := dev["correct_claim_lock_ms"].(float64); ok {
+				opts.CorrectClaimLockMs = int(v)
+			}
+		}
+	}
+
+	if err := room.StartGame(opts); err != nil {
 		h.sendError(c, err.Error())
 		return
 	}
@@ -366,7 +436,99 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 				WinnerID: result.WinnerID,
 			},
 		})
+
+		room.RLock()
+		hostID := room.HostID
+		room.RUnlock()
+
+		// Store before reset so new joiners can see the result (scores are cleared in reset).
+		room.SetLastGameResult(result.WinnerID, result.Players)
+
+		if err := room.ResetToLobby(); err == nil {
+			h.broadcast(c.RoomCode, OutboundMessage{
+				Type: MsgGameReset,
+				Payload: GameResetPayload{
+					Players: room.PlayerList(),
+					HostID:  hostID,
+				},
+			})
+		}
 	}
+}
+
+func (h *Handler) handleDevReset(c *WSClient) {
+	if c.RoomCode == "" {
+		return
+	}
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		return
+	}
+
+	room.RLock()
+	hostID := room.HostID
+	players := room.PlayerList()
+	room.RUnlock()
+
+	// Find winner by current score
+	winnerID := ""
+	maxScore := -1
+	for _, p := range players {
+		if p.Score > maxScore {
+			maxScore = p.Score
+			winnerID = p.ID
+		}
+	}
+
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type:    MsgGameOver,
+		Payload: GameOverPayload{Players: players, WinnerID: winnerID},
+	})
+
+	room.ForceResetToLobby()
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type: MsgGameReset,
+		Payload: GameResetPayload{
+			Players: room.PlayerList(),
+			HostID:  hostID,
+		},
+	})
+}
+
+func (h *Handler) handleRestartGame(c *WSClient) {
+	if c.RoomCode == "" {
+		h.sendError(c, "not in a room")
+		return
+	}
+
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		h.sendError(c, "room not found")
+		return
+	}
+
+	room.RLock()
+	isHost := room.HostID == c.PlayerID
+	hostID := room.HostID
+	room.RUnlock()
+
+	if !isHost {
+		h.sendError(c, "only host can restart the game")
+		return
+	}
+
+	if err := room.ResetToLobby(); err != nil {
+		h.sendError(c, err.Error())
+		return
+	}
+
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type: MsgGameReset,
+		Payload: GameResetPayload{
+			Players: room.PlayerList(),
+			HostID:  hostID,
+		},
+	})
 }
 
 func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {

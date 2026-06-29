@@ -56,6 +56,10 @@ type Room struct {
 	CreatedAt        time.Time
 	claimLockedUntil time.Time
 	countdownUntil   time.Time
+	wrongClaimDelay   time.Duration
+	correctClaimDelay time.Duration
+	LastWinnerID     string
+	LastGamePlayers  []*Player
 	mu               sync.RWMutex
 }
 
@@ -174,8 +178,42 @@ func (r *Room) PlayerList() []*Player {
 	return list
 }
 
+// StartGameOptions holds optional overrides for game start (used by dev tools).
+type StartGameOptions struct {
+	SkipCountdown       bool
+	DeckSize            int // 0 = full deck (57 cards)
+	WrongClaimPenaltyMs   int // 0 = use default (1500ms)
+	CorrectClaimLockMs    int // 0 = use default (2000ms)
+}
+
+// AddPlayerMidGame adds a player to an in-progress game and deals them a card from the deck.
+func (r *Room) AddPlayerMidGame(playerID, name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.State != StatePlaying {
+		return errors.New("game not in progress")
+	}
+	if len(r.Players) >= 8 {
+		return errors.New("room is full")
+	}
+	if len(r.Deck) == 0 {
+		return errors.New("no cards left in deck")
+	}
+
+	last := len(r.Deck) - 1
+	card := r.Deck[last]
+	r.Deck = r.Deck[:last]
+	r.Players[playerID] = &Player{
+		ID:   playerID,
+		Name: name,
+		Card: card,
+	}
+	return nil
+}
+
 // StartGame initializes and shuffles the deck, deals cards. Returns error if not ready.
-func (r *Room) StartGame() error {
+func (r *Room) StartGame(opts StartGameOptions) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -195,13 +233,21 @@ func (r *Room) StartGame() error {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rng.Shuffle(len(deck), func(i, j int) { deck[i], deck[j] = deck[j], deck[i] })
 
+	// Truncate deck if a smaller size was requested (enforce minimum for dealing)
+	if opts.DeckSize > 0 && opts.DeckSize < len(deck) {
+		min := len(r.Players) + 1
+		if opts.DeckSize < min {
+			opts.DeckSize = min
+		}
+		deck = deck[:opts.DeckSize]
+	}
+
 	// Convert to display (1-indexed)
 	for i, card := range deck {
 		deck[i] = ToDisplay(card)
 	}
 
 	// Deal one card to each player, one to center
-	// Need len(Players)+1 cards minimum
 	if len(deck) < len(r.Players)+1 {
 		return errors.New("not enough cards")
 	}
@@ -218,7 +264,19 @@ func (r *Room) StartGame() error {
 
 	r.Deck = deck
 	r.State = StatePlaying
-	r.countdownUntil = time.Now().Add(countdownDuration)
+	if opts.WrongClaimPenaltyMs > 0 {
+		r.wrongClaimDelay = time.Duration(opts.WrongClaimPenaltyMs) * time.Millisecond
+	} else {
+		r.wrongClaimDelay = wrongClaimPenalty
+	}
+	if opts.CorrectClaimLockMs > 0 {
+		r.correctClaimDelay = time.Duration(opts.CorrectClaimLockMs) * time.Millisecond
+	} else {
+		r.correctClaimDelay = correctClaimLockDuration
+	}
+	if !opts.SkipCountdown {
+		r.countdownUntil = time.Now().Add(countdownDuration)
+	}
 	return nil
 }
 
@@ -254,12 +312,12 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 
 	match := FindMatch(p.Card, r.CenterCard)
 	if match != symbol {
-		p.penalizedUntil = now.Add(wrongClaimPenalty)
+		p.penalizedUntil = now.Add(r.wrongClaimDelay)
 		return ClaimResult{Correct: false}
 	}
 
 	// Correct claim — lock the room for all players during the transition
-	r.claimLockedUntil = now.Add(correctClaimLockDuration)
+	r.claimLockedUntil = now.Add(r.correctClaimDelay)
 	p.Score++
 
 	// Player's card becomes the new center; player draws a fresh card from deck
@@ -291,6 +349,53 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		WinnerID:   winnerID,
 		DeckSize:   len(r.Deck),
 	}
+}
+
+// SetLastGameResult stores a deep copy of the final game result before scores are cleared.
+func (r *Room) SetLastGameResult(winnerID string, players []*Player) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.LastWinnerID = winnerID
+	r.LastGamePlayers = make([]*Player, len(players))
+	for i, p := range players {
+		cp := *p
+		r.LastGamePlayers[i] = &cp
+	}
+}
+
+// ResetToLobby resets the room back to the waiting state for another game.
+// Scores are cleared, cards are wiped, and the deck is emptied.
+// Returns error if the room is not in the finished state.
+func (r *Room) ResetToLobby() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.State != StateFinished {
+		return errors.New("game is not finished")
+	}
+
+	r.resetLocked()
+	return nil
+}
+
+// ForceResetToLobby resets the room regardless of current state (dev use only).
+func (r *Room) ForceResetToLobby() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resetLocked()
+}
+
+// resetLocked performs the actual reset. Must be called with lock held.
+func (r *Room) resetLocked() {
+	for _, p := range r.Players {
+		p.Score = 0
+		p.Card = nil
+	}
+	r.Deck = nil
+	r.CenterCard = nil
+	r.claimLockedUntil = time.Time{}
+	r.countdownUntil = time.Time{}
+	r.State = StateWaiting
 }
 
 // findWinner returns the player ID with the highest score. Must be called with lock held.

@@ -31,7 +31,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span>{i === 0 && isLeader ? '🏆' : `${i + 1}.`}</span>
+                  <span>{`${i + 1}.`}</span>
                   <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
                 </div>
                 <span className="font-bold shrink-0 ml-2">{p.score}</span>
@@ -60,7 +60,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 isYou && 'ring-2 ring-primary ring-offset-1',
               )}
             >
-              <span className="text-lg">{i === 0 && isLeader ? '🏆' : '•'}</span>
+              <span className="text-sm font-semibold">{i + 1}.</span>
               <span>{p.name}{isYou ? ' (you)' : ''}</span>
               <span className="font-bold">{p.score}</span>
             </Badge>

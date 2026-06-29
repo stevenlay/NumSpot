@@ -45,6 +45,8 @@ export interface RoomJoinedPayload {
   center_card?: number[]
   deck_size?: number
   spectators?: Spectator[]
+  last_winner_id?: string
+  last_game_players?: Player[]
 }
 
 export interface PlayerJoinedPayload {
@@ -76,6 +78,11 @@ export interface GameOverPayload {
   winner_id: string
 }
 
+export interface GameResetPayload {
+  players: Player[]
+  host_id: string
+}
+
 export interface SpectatorJoinedPayload {
   spectator: Spectator
 }
@@ -104,4 +111,6 @@ export interface ChatEntry {
   senderId?: string
   senderIsSpectator?: boolean
   timestamp: number
+  claimElapsedMs?: number
+  claimMissed?: boolean
 }

@@ -23,7 +23,7 @@ export default function NumberCard({
       {label && (
         <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
       )}
-      <Card className={cn('p-4 w-full max-w-sm', !clickable && 'bg-muted/40 opacity-60')}>
+      <Card className={cn('p-4 w-full max-w-sm rounded-none', !clickable && 'bg-muted/40 opacity-60')}>
         <div className="grid grid-cols-4 gap-2">
           {numbers.map((n) => {
             const isHighlight = highlightNumber === n
@@ -33,7 +33,7 @@ export default function NumberCard({
                 disabled={!clickable}
                 onClick={() => clickable && onClaim?.(n)}
                 className={cn(
-                  'flex items-center justify-center rounded-xl text-sm font-bold h-12 w-full transition-all select-none',
+                  'flex items-center justify-center rounded-none text-sm font-bold h-12 w-full transition-all select-none',
                   clickable
                     ? 'cursor-pointer hover:bg-primary/10 hover:text-primary active:scale-95'
                     : 'cursor-default',

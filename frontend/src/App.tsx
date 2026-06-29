@@ -3,6 +3,7 @@ import Home from './pages/Home'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
 import { useGameStore } from './store/gameStore'
+import DevPanel from './components/dev/DevPanel'
 
 function RequirePhase({ phase, children }: { phase: string | string[]; children: React.ReactNode }) {
   const currentPhase = useGameStore((s) => s.phase)
@@ -16,6 +17,7 @@ function RequirePhase({ phase, children }: { phase: string | string[]; children:
 export default function App() {
   return (
     <BrowserRouter>
+      {import.meta.env.DEV && <DevPanel />}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route
@@ -29,7 +31,7 @@ export default function App() {
         <Route
           path="/game"
           element={
-            <RequirePhase phase={['playing', 'finished']}>
+            <RequirePhase phase={['playing', 'lobby']}>
               <Game />
             </RequirePhase>
           }

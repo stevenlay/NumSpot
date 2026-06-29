@@ -4,11 +4,13 @@ import "github.com/numspot/server/internal/game"
 
 // Inbound message types (client → server)
 const (
-	MsgCreateRoom = "create_room"
-	MsgJoinRoom   = "join_room"
-	MsgStartGame  = "start_game"
-	MsgClaim      = "claim"
-	MsgChatSend   = "chat_send"
+	MsgCreateRoom  = "create_room"
+	MsgJoinRoom    = "join_room"
+	MsgStartGame   = "start_game"
+	MsgClaim       = "claim"
+	MsgChatSend    = "chat_send"
+	MsgRestartGame = "restart_game"
+	MsgDevReset    = "dev_reset"
 )
 
 // Outbound message types (server → client)
@@ -19,6 +21,7 @@ const (
 	MsgGameStarted     = "game_started"
 	MsgClaimResult     = "claim_result"
 	MsgGameOver        = "game_over"
+	MsgGameReset       = "game_reset"
 	MsgSpectatorJoined = "spectator_joined"
 	MsgSpectatorLeft   = "spectator_left"
 	MsgChatMessage     = "chat_message"
@@ -69,6 +72,9 @@ type RoomJoinedPayload struct {
 	CenterCard []int           `json:"center_card,omitempty"`
 	DeckSize   int             `json:"deck_size,omitempty"`
 	Spectators []SpectatorInfo `json:"spectators,omitempty"`
+	// Populated when joining a lobby after a completed game
+	LastWinnerID    string         `json:"last_winner_id,omitempty"`
+	LastGamePlayers []*game.Player `json:"last_game_players,omitempty"`
 }
 
 type PlayerJoinedPayload struct {
@@ -98,6 +104,11 @@ type ClaimResultPayload struct {
 type GameOverPayload struct {
 	Players  []*game.Player `json:"players"`
 	WinnerID string         `json:"winner_id"`
+}
+
+type GameResetPayload struct {
+	Players []*game.Player `json:"players"`
+	HostID  string         `json:"host_id"`
 }
 
 type SpectatorJoinedPayload struct {

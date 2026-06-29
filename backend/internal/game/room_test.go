@@ -9,7 +9,7 @@ import (
 func newPlayingRoom(t *testing.T) *Room {
 	t.Helper()
 	r := NewRoom("TEST", "host", "Host")
-	if err := r.StartGame(); err != nil {
+	if err := r.StartGame(StartGameOptions{}); err != nil {
 		t.Fatalf("StartGame: %v", err)
 	}
 	r.countdownUntil = time.Now().Add(-time.Second)
@@ -31,7 +31,7 @@ func slicesEqual(a, b []int) bool {
 func TestStartGame(t *testing.T) {
 	t.Run("sets state to playing", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
-		if err := r.StartGame(); err != nil {
+		if err := r.StartGame(StartGameOptions{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if r.State != StatePlaying {
@@ -42,7 +42,7 @@ func TestStartGame(t *testing.T) {
 	t.Run("deals center card and player cards", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
 		r.AddPlayer("p2", "P2")
-		r.StartGame()
+		r.StartGame(StartGameOptions{})
 
 		if len(r.CenterCard) == 0 {
 			t.Error("CenterCard is empty after StartGame")
@@ -58,7 +58,7 @@ func TestStartGame(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
 		r.AddPlayer("p2", "P2")
 		r.AddPlayer("p3", "P3")
-		r.StartGame()
+		r.StartGame(StartGameOptions{})
 
 		want := 57 - 1 - len(r.Players)
 		if len(r.Deck) != want {
@@ -69,7 +69,7 @@ func TestStartGame(t *testing.T) {
 	t.Run("all dealt cards are distinct", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
 		r.AddPlayer("p2", "P2")
-		r.StartGame()
+		r.StartGame(StartGameOptions{})
 
 		cards := [][]int{r.CenterCard}
 		for _, p := range r.Players {
@@ -86,8 +86,8 @@ func TestStartGame(t *testing.T) {
 
 	t.Run("error if already playing", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
-		r.StartGame()
-		if err := r.StartGame(); err == nil {
+		r.StartGame(StartGameOptions{})
+		if err := r.StartGame(StartGameOptions{}); err == nil {
 			t.Error("expected error starting game twice, got nil")
 		}
 	})
@@ -169,7 +169,7 @@ func TestClaim(t *testing.T) {
 
 	t.Run("rejected during countdown", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
-		r.StartGame() // countdown is active
+		r.StartGame(StartGameOptions{}) // countdown is active
 
 		host := r.Players["host"]
 		symbol := FindMatch(host.Card, r.CenterCard)

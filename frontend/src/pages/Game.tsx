@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
+import { useDevStore } from '../store/devStore'
 import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
 import ChatPanel from '../components/game/ChatPanel'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +16,6 @@ export default function Game() {
   const players = useGameStore((s) => s.players)
   const centerCard = useGameStore((s) => s.centerCard)
   const lastClaim = useGameStore((s) => s.lastClaim)
-  const winner = useGameStore((s) => s.winner)
   const deckSize = useGameStore((s) => s.deckSize)
   const countdown = useGameStore((s) => s.countdown)
   const roomCode = useGameStore((s) => s.roomCode)
@@ -48,6 +47,8 @@ export default function Game() {
   useEffect(() => {
     if (phase === 'home') {
       navigate('/', { replace: true })
+    } else if (phase === 'lobby') {
+      navigate('/lobby', { replace: true })
     }
   }, [phase, navigate])
 
@@ -68,59 +69,13 @@ export default function Game() {
   }
 
   const highlightNum = lastClaim?.correct ? lastClaim.symbol : null
-
-  if (phase === 'finished') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="w-full max-w-md shadow-lg text-center">
-          <CardHeader>
-            <div className="text-5xl mb-2">🎉</div>
-            <CardTitle className="text-3xl font-extrabold text-primary">Game Over!</CardTitle>
-            {winner && (
-              <p className="text-xl font-semibold text-foreground">
-                {isSpectator
-                  ? `${winner.name} wins!`
-                  : winner.id === playerId
-                    ? 'You win!'
-                    : `${winner.name} wins!`}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2 text-left">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Final Scores</h2>
-              {[...players]
-                .sort((a, b) => b.score - a.score)
-                .map((p, i) => (
-                  <div
-                    key={p.id}
-                    className={cn(
-                      'flex justify-between items-center px-4 py-3 rounded-lg',
-                      i === 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-muted/50'
-                    )}
-                  >
-                    <span className="font-medium text-foreground">
-                      {i === 0 ? '🏆 ' : `${i + 1}. `}
-                      {p.name}
-                      {p.id === playerId ? ' (you)' : ''}
-                    </span>
-                    <span className="font-bold text-primary">{p.score} pts</span>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={goHome} size="lg" className="w-full">
-              {isSpectator ? 'Back to Home' : 'Play Again'}
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
+  const highlightAnswerEnabled = useDevStore((s) => s.highlightAnswer)
+  const answerNum = (import.meta.env.DEV && highlightAnswerEnabled)
+    ? myCard.find((n) => centerCard.includes(n)) ?? null
+    : null
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {countdown !== null && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-background/80 backdrop-blur-sm">
           <span
@@ -185,7 +140,7 @@ export default function Game() {
       </div>
 
       {/* Body: sidebar + main */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Left sidebar — hidden on small screens */}
         <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
@@ -236,7 +191,7 @@ export default function Game() {
                   label="Your Card — tap the matching number!"
                   onClaim={handleClaim}
                   clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
-                  highlightNumber={highlightNum}
+                  highlightNumber={answerNum ?? highlightNum}
                   className="w-full"
                 />
               )}
@@ -248,6 +203,7 @@ export default function Game() {
         <ChatPanel />
 
       </div>
+
     </div>
   )
 }

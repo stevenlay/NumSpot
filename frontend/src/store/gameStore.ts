@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useDevStore } from './devStore'
 import type {
   GamePhase,
   Player,
@@ -10,6 +11,7 @@ import type {
   GameStartedPayload,
   ClaimResultPayload,
   GameOverPayload,
+  GameResetPayload,
   SpectatorJoinedPayload,
   SpectatorLeftPayload,
   ChatMessagePayload,
@@ -32,7 +34,8 @@ export interface GameStore {
   deckSize: number
   countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
-  winner: Player | null
+  roundStartedAt: number | null
+  gameOverToast: { winner: Player | null; players: Player[] } | null
   connected: boolean
   disconnected: boolean
   error: string | null
@@ -42,21 +45,25 @@ export interface GameStore {
   // Actions
   connect: (name: string, roomCode?: string) => void
   startGame: () => void
+  restartGame: () => void
   claim: (symbol: number) => void
   sendChat: (text: string) => void
   resetError: () => void
+  dismissGameOverToast: () => void
   goHome: () => void
 }
 
 function addStatusEntry(
   set: (fn: (s: GameStore) => Partial<GameStore>) => void,
   text: string,
+  extra?: Partial<ChatEntry>,
 ) {
   const entry: ChatEntry = {
     id: crypto.randomUUID(),
     kind: 'status',
     text,
     timestamp: Date.now(),
+    ...extra,
   }
   set((s) => ({ chatMessages: [...s.chatMessages, entry] }))
 }
@@ -83,6 +90,9 @@ function handleMessage(
           disconnected: false,
         })
       } else {
+        const gameOverToast = p.last_winner_id && p.last_game_players
+          ? { winner: p.last_game_players.find((pl) => pl.id === p.last_winner_id) ?? null, players: p.last_game_players }
+          : null
         set({
           phase: 'lobby',
           playerId: p.player_id,
@@ -91,6 +101,7 @@ function handleMessage(
           isSpectator: false,
           players: p.players,
           disconnected: false,
+          gameOverToast,
         })
       }
       break
@@ -114,37 +125,77 @@ function handleMessage(
     }
     case 'game_started': {
       const p = msg.payload as GameStartedPayload
-      set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3 })
       addStatusEntry(set, 'Game started!')
-      setTimeout(() => set({ countdown: 2 }), 1000)
-      setTimeout(() => set({ countdown: 1 }), 2000)
-      setTimeout(() => set({ countdown: 0 }), 3000)
-      setTimeout(() => set({ countdown: null }), 4000)
+      const skipCountdown = import.meta.env.DEV && useDevStore.getState().skipCountdown
+      if (skipCountdown) {
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: null, roundStartedAt: Date.now() })
+      } else {
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3 })
+        setTimeout(() => set({ countdown: 2 }), 1000)
+        setTimeout(() => set({ countdown: 1 }), 2000)
+        setTimeout(() => set({ countdown: 0 }), 3000)
+        setTimeout(() => set({ countdown: null, roundStartedAt: Date.now() }), 4000)
+      }
       break
     }
     case 'claim_result': {
       const p = msg.payload as ClaimResultPayload
       set({ lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct } })
-      const playerName = p.players?.find((pl) => pl.id === p.player_id)?.name ?? 'Someone'
+      const playerName = get().players.find((pl) => pl.id === p.player_id)?.name ?? 'Someone'
       if (p.correct) {
-        addStatusEntry(set, `${playerName} got it! +1`)
+        const claimElapsedMs = Date.now() - (get().roundStartedAt ?? Date.now())
+        addStatusEntry(set, `${playerName} got it! +1`, { claimElapsedMs })
+        // Update scores immediately, but keep existing cards until cooldown ends
+        if (p.players) {
+          const scoreMap = new Map(p.players.map(pl => [pl.id, pl.score]))
+          set((s) => ({ players: s.players.map(pl => ({ ...pl, score: scoreMap.get(pl.id) ?? pl.score })) }))
+        }
       } else {
         const isSelf = get().playerId === p.player_id
-        addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`)
+        addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`, { claimMissed: true })
       }
+      const dev = import.meta.env.DEV ? useDevStore.getState() : null
+      const clearDelay = p.correct
+        ? (dev?.correctClaimLockMs ?? 2000)
+        : (dev?.wrongClaimPenaltyMs ?? 1500)
       setTimeout(() => set({
         lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
         players: p.players ?? get().players,
         deckSize: p.correct ? p.deck_size : get().deckSize,
-      }), p.correct ? 2000 : 1500)
+        ...(p.correct ? { roundStartedAt: Date.now() } : {}),
+      }), clearDelay)
       break
     }
     case 'game_over': {
       const p = msg.payload as GameOverPayload
+      const { playerId } = get()
       const winner = p.players.find((pl) => pl.id === p.winner_id) ?? null
-      set({ phase: 'finished', players: p.players, winner })
-      addStatusEntry(set, `Game over! ${winner?.name ?? 'Someone'} wins!`)
+      set({ gameOverToast: { winner, players: p.players } })
+      const sorted = [...p.players].sort((a, b) => b.score - a.score)
+      addStatusEntry(set, winner ? `Game over! ${winner.id === playerId ? 'You win!' : `${winner.name} wins!`}` : 'Game over!')
+      const top3 = sorted.slice(0, 3)
+      top3.forEach((pl, i) => addStatusEntry(set, `${i + 1}. ${pl.name}${pl.id === playerId ? ' (you)' : ''} — ${pl.score} pt${pl.score !== 1 ? 's' : ''}`))
+      const selfRank = sorted.findIndex(pl => pl.id === playerId)
+      if (selfRank >= 3) {
+        const self = sorted[selfRank]
+        addStatusEntry(set, `${selfRank + 1}. You — ${self.score} pt${self.score !== 1 ? 's' : ''}`)
+      }
+      break
+    }
+    case 'game_reset': {
+      const p = msg.payload as GameResetPayload
+      const { playerId } = get()
+      set({
+        phase: 'lobby',
+        players: p.players,
+        isHost: p.host_id === playerId,
+        centerCard: [],
+        deckSize: 0,
+        lastClaim: null,
+        roundStartedAt: null,
+        countdown: null,
+      })
       break
     }
     case 'spectator_joined': {
@@ -209,7 +260,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   deckSize: 0,
   countdown: null,
   lastClaim: null,
-  winner: null,
+  roundStartedAt: null,
+  gameOverToast: null,
   connected: false,
   disconnected: false,
   error: null,
@@ -263,7 +315,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startGame: () => {
     const ws = get()._ws
     if (!ws) return
-    ws.send(JSON.stringify({ type: 'start_game', payload: {} }))
+    const dev = import.meta.env.DEV ? useDevStore.getState() : null
+    ws.send(JSON.stringify({
+      type: 'start_game',
+      payload: dev ? { dev: { skip_countdown: dev.skipCountdown, deck_size: dev.deckSize, wrong_claim_penalty_ms: dev.wrongClaimPenaltyMs, correct_claim_lock_ms: dev.correctClaimLockMs } } : {},
+    }))
+  },
+
+  restartGame: () => {
+    const ws = get()._ws
+    if (!ws) return
+    ws.send(JSON.stringify({ type: 'restart_game', payload: {} }))
   },
 
   claim: (symbol: number) => {
@@ -296,7 +358,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       deckSize: 0,
       countdown: null,
       lastClaim: null,
-      winner: null,
+      roundStartedAt: null,
+      gameOverToast: null,
       connected: false,
       disconnected: false,
       error: null,
@@ -305,4 +368,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })
     if (ws) ws.close()
   },
+
+  dismissGameOverToast: () => set({ gameOverToast: null }),
 }))

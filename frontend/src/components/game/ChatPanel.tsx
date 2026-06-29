@@ -27,7 +27,7 @@ export default function ChatPanel() {
   }
 
   return (
-    <aside className="hidden lg:flex lg:w-64 shrink-0 border-l border-border flex-col">
+    <aside className="hidden lg:flex lg:w-64 shrink-0 border-l border-border flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-border shrink-0">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chat</span>
       </div>
@@ -38,7 +38,20 @@ export default function ChatPanel() {
         )}
         {chatMessages.map((entry: ChatEntry) =>
           entry.kind === 'status' ? (
-            <div key={entry.id} className="text-[11px] text-muted-foreground/60 text-center py-0.5">
+            <div
+              key={entry.id}
+              className="text-[11px] text-center py-0.5 rounded-md px-2"
+              style={
+                entry.claimElapsedMs !== undefined
+                  ? {
+                      color: 'rgb(21 128 61)',
+                      backgroundColor: `rgba(34, 197, 94, ${Math.max(0.08, 0.35 * Math.exp(-entry.claimElapsedMs / 8000))})`,
+                    }
+                  : entry.claimMissed
+                    ? { color: 'rgb(185 28 28)', backgroundColor: 'rgba(239, 68, 68, 0.15)' }
+                    : { color: 'var(--muted-foreground)', opacity: 0.6 }
+              }
+            >
               — {entry.text} —
             </div>
           ) : (
