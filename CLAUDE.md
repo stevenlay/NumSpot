@@ -69,8 +69,9 @@ cd frontend && npm run build
 - Validation rules (name: 2–24 chars, `[a-zA-Z0-9 '_\-.]`) must stay in sync with the backend
 
 ### Testing
-- Test files live alongside the component: `Foo.tsx` → `Foo.test.tsx`
-- Mock the game store with `vi.mock('../store/gameStore')` using a selector-compatible mock — see `Home.test.tsx`
+- Frontend test files live in `src/__tests__/` (e.g. `src/__tests__/Home.test.tsx`)
+- Go test files live alongside their package (`card_test.go` next to `card.go`) — Go tooling requires this
+- Mock the game store with `vi.mock('../store/gameStore')` using a selector-compatible mock — see `__tests__/Home.test.tsx`
 - Wrap routed components in `<MemoryRouter>` from react-router-dom
 - See `TESTING.md` for the full guide
 

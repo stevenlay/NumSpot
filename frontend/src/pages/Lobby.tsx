@@ -95,18 +95,16 @@ export default function Lobby() {
             </ul>
           </div>
 
-          {isHost ? (
-            <div className="flex flex-col gap-2">
-              <Button
-                onClick={() => { setStarting(true); startGame() }}
-                disabled={starting || disconnected}
-                size="lg"
-                className="w-full"
-              >
-                {starting ? 'Starting…' : 'Start Game'}
-              </Button>
-            </div>
-          ) : null}
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => { setStarting(true); startGame() }}
+              disabled={!isHost || starting || disconnected}
+              size="lg"
+              className="w-full"
+            >
+              {starting ? 'Starting…' : 'Start Game'}
+            </Button>
+          </div>
         </CardContent>
         <CardFooter className="justify-center">
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground">

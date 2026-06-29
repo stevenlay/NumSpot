@@ -87,3 +87,21 @@ export interface SpectatorLeftPayload {
 export interface ErrorPayload {
   message: string
 }
+
+export interface ChatMessagePayload {
+  sender_id: string
+  sender_name: string
+  sender_is_spectator?: boolean
+  text: string
+  timestamp: number
+}
+
+export interface ChatEntry {
+  id: string
+  kind: 'status' | 'chat'
+  text: string
+  senderName?: string
+  senderId?: string
+  senderIsSpectator?: boolean
+  timestamp: number
+}

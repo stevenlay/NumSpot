@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
-import Home from './Home'
+import Home from '../pages/Home'
 import { useGameStore } from '../store/gameStore'
 import type { GameStore } from '../store/gameStore'
 

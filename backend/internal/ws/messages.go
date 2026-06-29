@@ -8,6 +8,7 @@ const (
 	MsgJoinRoom   = "join_room"
 	MsgStartGame  = "start_game"
 	MsgClaim      = "claim"
+	MsgChatSend   = "chat_send"
 )
 
 // Outbound message types (server → client)
@@ -20,6 +21,7 @@ const (
 	MsgGameOver        = "game_over"
 	MsgSpectatorJoined = "spectator_joined"
 	MsgSpectatorLeft   = "spectator_left"
+	MsgChatMessage     = "chat_message"
 	MsgError           = "error"
 )
 
@@ -108,4 +110,12 @@ type SpectatorLeftPayload struct {
 
 type ErrorPayload struct {
 	Message string `json:"message"`
+}
+
+type ChatMessagePayload struct {
+	SenderID      string `json:"sender_id"`
+	SenderName    string `json:"sender_name"`
+	SenderIsSpectator bool `json:"sender_is_spectator,omitempty"`
+	Text          string `json:"text"`
+	Timestamp     int64  `json:"timestamp"` // Unix milliseconds
 }

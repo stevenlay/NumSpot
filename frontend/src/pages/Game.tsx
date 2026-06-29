@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
+import ChatPanel from '../components/game/ChatPanel'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -30,16 +31,12 @@ export default function Game() {
   const myPlayer = players.find((p) => p.id === playerId)
   const myCard = myPlayer?.card ?? []
 
-  const showToast = lastClaim !== null
+  const showToast = lastClaim?.correct === true
   const claimantName = lastClaim ? (players.find((p) => p.id === lastClaim.playerId)?.name ?? 'Someone') : ''
-  const toastText = lastClaim
-    ? lastClaim.correct
-      ? lastClaim.playerId === playerId
-        ? '✓ Correct! +1'
-        : `${claimantName} got it!`
-      : lastClaim.playerId === playerId
-        ? '✗ Wrong number!'
-        : `${claimantName} missed!`
+  const toastText = lastClaim?.correct
+    ? lastClaim.playerId === playerId
+      ? '✓ Correct! +1'
+      : `${claimantName} got it!`
     : null
 
   useEffect(() => {
@@ -178,7 +175,7 @@ export default function Game() {
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">Spectating</span>
           )}
           {spectators.length > 0 && (
-            <span className="md:hidden text-xs text-muted-foreground">{spectators.length} watching</span>
+            <span className="md:hidden text-xs text-muted-foreground">{spectators.length} spectating</span>
           )}
           <span className="text-xs text-muted-foreground">{deckSize} cards left</span>
           <Button variant="ghost" size="sm" onClick={goHome} className="text-muted-foreground text-xs">
@@ -198,8 +195,8 @@ export default function Game() {
           </div>
           <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
           {spectators.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Watching</h2>
+            <div className="flex flex-col gap-1.5 mt-4">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spectating</h2>
               {spectators.map((s) => (
                 <div key={s.id} className="px-3 py-2 rounded-lg text-sm bg-muted/50 text-muted-foreground truncate">
                   {s.name}
@@ -210,7 +207,7 @@ export default function Game() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
+        <main className="flex-1 flex flex-col items-center p-6 overflow-y-auto min-w-0">
           <div className="w-full max-w-md flex flex-col gap-4">
             {!isSpectator && (
               <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-4 py-2.5 text-xs">
@@ -246,6 +243,9 @@ export default function Game() {
             </div>
           </div>
         </main>
+
+        {/* Right sidebar — chat, hidden below lg */}
+        <ChatPanel />
 
       </div>
     </div>

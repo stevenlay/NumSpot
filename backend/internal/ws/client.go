@@ -11,13 +11,14 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = 54 * time.Second
-	maxMessageSize = 512
+	maxMessageSize = 1024
 )
 
 // WSClient is a WebSocket client connected to a room.
 type WSClient struct {
 	ID          string
 	PlayerID    string // stable player identity; equals ID for new connections, original player ID for rejoins
+	Name        string
 	IsSpectator bool
 	RoomCode    string
 	Send        chan []byte

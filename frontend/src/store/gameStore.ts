@@ -12,6 +12,8 @@ import type {
   GameOverPayload,
   SpectatorJoinedPayload,
   SpectatorLeftPayload,
+  ChatMessagePayload,
+  ChatEntry,
 } from '../types/game'
 
 const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -34,14 +36,29 @@ export interface GameStore {
   connected: boolean
   disconnected: boolean
   error: string | null
+  chatMessages: ChatEntry[]
   _ws: WebSocket | null
 
   // Actions
   connect: (name: string, roomCode?: string) => void
   startGame: () => void
   claim: (symbol: number) => void
+  sendChat: (text: string) => void
   resetError: () => void
   goHome: () => void
+}
+
+function addStatusEntry(
+  set: (fn: (s: GameStore) => Partial<GameStore>) => void,
+  text: string,
+) {
+  const entry: ChatEntry = {
+    id: crypto.randomUUID(),
+    kind: 'status',
+    text,
+    timestamp: Date.now(),
+  }
+  set((s) => ({ chatMessages: [...s.chatMessages, entry] }))
 }
 
 function handleMessage(
@@ -81,20 +98,24 @@ function handleMessage(
     case 'player_joined': {
       const p = msg.payload as PlayerJoinedPayload
       set((s) => ({ players: [...s.players, p.player] }))
+      addStatusEntry(set, `${p.player.name} joined`)
       break
     }
     case 'player_left': {
       const p = msg.payload as PlayerLeftPayload
       const { playerId } = get()
+      const leavingPlayer = get().players.find((pl) => pl.id === p.player_id)
       set((s) => ({
         players: s.players.filter((pl) => pl.id !== p.player_id),
         isHost: p.new_host_id === playerId ? true : s.isHost,
       }))
+      if (leavingPlayer) addStatusEntry(set, `${leavingPlayer.name} left`)
       break
     }
     case 'game_started': {
       const p = msg.payload as GameStartedPayload
       set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3 })
+      addStatusEntry(set, 'Game started!')
       setTimeout(() => set({ countdown: 2 }), 1000)
       setTimeout(() => set({ countdown: 1 }), 2000)
       setTimeout(() => set({ countdown: 0 }), 3000)
@@ -104,6 +125,13 @@ function handleMessage(
     case 'claim_result': {
       const p = msg.payload as ClaimResultPayload
       set({ lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct } })
+      const playerName = p.players?.find((pl) => pl.id === p.player_id)?.name ?? 'Someone'
+      if (p.correct) {
+        addStatusEntry(set, `${playerName} got it! +1`)
+      } else {
+        const isSelf = get().playerId === p.player_id
+        addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`)
+      }
       setTimeout(() => set({
         lastClaim: null,
         centerCard: p.center_card ?? get().centerCard,
@@ -116,16 +144,32 @@ function handleMessage(
       const p = msg.payload as GameOverPayload
       const winner = p.players.find((pl) => pl.id === p.winner_id) ?? null
       set({ phase: 'finished', players: p.players, winner })
+      addStatusEntry(set, `Game over! ${winner?.name ?? 'Someone'} wins!`)
       break
     }
     case 'spectator_joined': {
       const p = msg.payload as SpectatorJoinedPayload
       set((s) => ({ spectators: [...s.spectators, p.spectator] }))
+      addStatusEntry(set, `${p.spectator.name} spectating`)
       break
     }
     case 'spectator_left': {
       const p = msg.payload as SpectatorLeftPayload
       set((s) => ({ spectators: s.spectators.filter((sp) => sp.id !== p.spectator_id) }))
+      break
+    }
+    case 'chat_message': {
+      const p = msg.payload as ChatMessagePayload
+      const entry: ChatEntry = {
+        id: crypto.randomUUID(),
+        kind: 'chat',
+        text: p.text,
+        senderName: p.sender_name,
+        senderId: p.sender_id,
+        senderIsSpectator: p.sender_is_spectator,
+        timestamp: p.timestamp,
+      }
+      set((s) => ({ chatMessages: [...s.chatMessages, entry] }))
       break
     }
     case 'error': {
@@ -169,6 +213,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   connected: false,
   disconnected: false,
   error: null,
+  chatMessages: [],
   _ws: null,
 
   connect: (name: string, roomCode?: string) => {
@@ -227,6 +272,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     ws.send(JSON.stringify({ type: 'claim', payload: { symbol } }))
   },
 
+  sendChat: (text: string) => {
+    const ws = get()._ws
+    if (!ws) return
+    ws.send(JSON.stringify({ type: 'chat_send', payload: { text } }))
+  },
+
   resetError: () => set({ error: null }),
 
   goHome: () => {
@@ -249,6 +300,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       connected: false,
       disconnected: false,
       error: null,
+      chatMessages: [],
       _ws: null,
     })
     if (ws) ws.close()

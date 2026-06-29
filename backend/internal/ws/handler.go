@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -148,6 +149,8 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 		h.handleStartGame(c)
 	case MsgClaim:
 		h.handleClaim(c, msg.Payload)
+	case MsgChatSend:
+		h.handleChat(c, msg.Payload)
 	default:
 		h.sendError(c, "unknown message type")
 	}
@@ -167,6 +170,7 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 		return
 	}
 
+	c.Name = name
 	c.RoomCode = room.Code
 	room.RegisterClient(c.ID, c)
 	h.registerClient(room.Code, c)
@@ -210,6 +214,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 
 	if state != game.StateWaiting {
 		// Game already started — add as spectator
+		c.Name = name
 		c.RoomCode = code
 		c.IsSpectator = true
 		room.AddSpectator(c.ID, name, c)
@@ -248,6 +253,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 		return
 	}
 
+	c.Name = name
 	c.RoomCode = code
 	room.RegisterClient(c.ID, c)
 	h.registerClient(code, c)
@@ -361,6 +367,27 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 			},
 		})
 	}
+}
+
+func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {
+	if c.RoomCode == "" {
+		return
+	}
+	text, _ := payload["text"].(string)
+	text = strings.TrimSpace(text)
+	if text == "" || len(text) > 200 {
+		return
+	}
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type: MsgChatMessage,
+		Payload: ChatMessagePayload{
+			SenderID:          c.PlayerID,
+			SenderName:        c.Name,
+			SenderIsSpectator: c.IsSpectator,
+			Text:              text,
+			Timestamp:         time.Now().UnixMilli(),
+		},
+	})
 }
 
 // broadcast sends a message to all clients in a room.
