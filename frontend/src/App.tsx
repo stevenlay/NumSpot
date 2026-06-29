@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import Home from './pages/Home'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
@@ -8,8 +8,9 @@ import DevPanel from './components/dev/DevPanel'
 function RequirePhase({ phase, children }: { phase: string | string[]; children: React.ReactNode }) {
   const currentPhase = useGameStore((s) => s.phase)
   const phases = Array.isArray(phase) ? phase : [phase]
+  const { code } = useParams<{ code?: string }>()
   if (!phases.includes(currentPhase)) {
-    return <Navigate to="/" replace />
+    return <Navigate to={code ? `/join/${code}` : '/'} replace />
   }
   return <>{children}</>
 }
