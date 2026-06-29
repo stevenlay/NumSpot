@@ -27,7 +27,7 @@ export default function ChatPanel() {
   }
 
   return (
-    <aside className="hidden lg:flex lg:w-64 shrink-0 border-l border-border flex-col overflow-hidden">
+    <aside className="hidden lg:flex lg:w-96 shrink-0 border-l border-border flex-col overflow-hidden">
       <div className="px-4 py-3 border-b border-border shrink-0">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chat</span>
       </div>

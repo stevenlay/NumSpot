@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,9 +10,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 export default function Home() {
+  const { code: codeParam } = useParams<{ code?: string }>()
   const [name, setName] = useState('')
-  const [mode, setMode] = useState<'create' | 'join'>('create')
-  const [roomCode, setRoomCode] = useState('')
+  const [mode, setMode] = useState<'create' | 'join'>(codeParam ? 'join' : 'create')
+  const [roomCode, setRoomCode] = useState(codeParam?.toUpperCase() ?? '')
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; roomCode?: string }>({})
   const connect = useGameStore((s) => s.connect)
   const error = useGameStore((s) => s.error)
@@ -76,6 +77,7 @@ export default function Home() {
                 placeholder="Enter your name"
                 maxLength={24}
                 aria-invalid={!!fieldErrors.name}
+                autoFocus={!!codeParam}
                 className={cn(fieldErrors.name && 'border-destructive focus-visible:ring-destructive')}
               />
               {fieldErrors.name && <p className="text-sm text-destructive">{fieldErrors.name}</p>}

@@ -29,6 +29,12 @@ const CORRECT_CLAIM_PRESETS = [
   { label: 'Long', ms: 4000 },
 ] as const
 
+const DECK_SIZE_PRESETS = [
+  { label: '13', cards: 13 },
+  { label: '31', cards: 31 },
+  { label: '57', cards: 57 },
+] as const
+
 export default function Lobby() {
   const roomCode = useGameStore((s) => s.roomCode)
   const players = useGameStore((s) => s.players)
@@ -56,7 +62,8 @@ export default function Lobby() {
   if (phase === 'playing') return <Navigate to="/game" replace />
 
   const copyCode = () => {
-    navigator.clipboard.writeText(roomCode).catch(() => { })
+    const url = `${window.location.origin}/join/${roomCode}`
+    navigator.clipboard.writeText(url).catch(() => { })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -112,7 +119,8 @@ export default function Lobby() {
         </div>
       }
     >
-      <main className="flex-1 flex flex-col p-6 overflow-y-auto min-w-0 gap-5">
+      <main className="flex-1 flex flex-col p-6 overflow-y-auto min-w-0 items-center">
+        <div className="w-full max-w-xl flex flex-col gap-5">
 
         {/* Alerts */}
         {disconnected && (
@@ -253,7 +261,7 @@ export default function Lobby() {
                       onClick={() => !tooFew && updateSettings({ ...settings, max_players: n })}
                       disabled={tooFew}
                       className={cn(
-                        'flex-1 text-xs py-1 rounded transition-colors',
+                        'flex-1 text-sm py-2.5 rounded transition-colors',
                         tooFew
                           ? 'bg-muted text-muted-foreground/40 cursor-not-allowed'
                           : settings.max_players === n
@@ -278,20 +286,22 @@ export default function Lobby() {
               </span>
             </div>
             {isHost && (
-              <>
-                <input
-                  type="range"
-                  min={5}
-                  max={57}
-                  value={settings.deck_size}
-                  onChange={(e) => updateSettings({ ...settings, deck_size: Number(e.target.value) })}
-                  className="w-full accent-primary cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>5</span>
-                  <span>57</span>
-                </div>
-              </>
+              <div className="flex gap-1">
+                {DECK_SIZE_PRESETS.map((p) => (
+                  <button
+                    key={p.cards}
+                    onClick={() => updateSettings({ ...settings, deck_size: p.cards })}
+                    className={cn(
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
+                      settings.deck_size === p.cards
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
@@ -310,7 +320,7 @@ export default function Lobby() {
                     key={p.ms}
                     onClick={() => updateSettings({ ...settings, wrong_claim_penalty_ms: p.ms })}
                     className={cn(
-                      'flex-1 text-xs py-1 rounded transition-colors',
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
                       settings.wrong_claim_penalty_ms === p.ms
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80 text-muted-foreground'
@@ -338,7 +348,7 @@ export default function Lobby() {
                     key={p.ms}
                     onClick={() => updateSettings({ ...settings, correct_claim_lock_ms: p.ms })}
                     className={cn(
-                      'flex-1 text-xs py-1 rounded transition-colors',
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
                       settings.correct_claim_lock_ms === p.ms
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80 text-muted-foreground'
@@ -383,6 +393,7 @@ export default function Lobby() {
               </Button>
             </>
           )}
+        </div>
         </div>
       </main>
     </GameShell>

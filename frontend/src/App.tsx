@@ -20,6 +20,7 @@ export default function App() {
       {import.meta.env.DEV && <DevPanel />}
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/join/:code" element={<Home />} />
         <Route
           path="/lobby"
           element={
@@ -31,7 +32,7 @@ export default function App() {
         <Route
           path="/game"
           element={
-            <RequirePhase phase={['playing', 'lobby']}>
+            <RequirePhase phase={['playing', 'lobby', 'finished']}>
               <Game />
             </RequirePhase>
           }

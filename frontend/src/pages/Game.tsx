@@ -33,7 +33,8 @@ export default function Game() {
   const [copied, setCopied] = useState(false)
 
   const copyCode = () => {
-    navigator.clipboard.writeText(roomCode).catch(() => { })
+    const url = `${window.location.origin}/join/${roomCode}`
+    navigator.clipboard.writeText(url).catch(() => { })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -152,7 +153,7 @@ export default function Game() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Left sidebar — hidden on small screens */}
-        <aside className="hidden md:flex md:w-56 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
+        <aside className="hidden md:flex md:w-80 shrink-0 border-r border-border p-4 overflow-y-auto flex-col gap-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Room Code</span>
             <span className="text-2xl font-black tracking-widest text-foreground">{roomCode}</span>
