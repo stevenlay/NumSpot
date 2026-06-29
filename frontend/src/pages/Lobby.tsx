@@ -59,7 +59,7 @@ export default function Lobby() {
     if (error) setStarting(false)
   }, [error])
 
-  if (phase === 'playing') return <Navigate to="/game" replace />
+  if (phase === 'playing') return <Navigate to={`/game/${roomCode}`} replace />
 
   const copyCode = () => {
     const url = `${window.location.origin}/join/${roomCode}`

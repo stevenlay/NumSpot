@@ -22,7 +22,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/join/:code" element={<Home />} />
         <Route
-          path="/lobby"
+          path="/lobby/:code"
           element={
             <RequirePhase phase={['lobby', 'playing', 'finished']}>
               <Lobby />
@@ -30,7 +30,7 @@ export default function App() {
           }
         />
         <Route
-          path="/game"
+          path="/game/:code"
           element={
             <RequirePhase phase={['playing', 'lobby', 'finished']}>
               <Game />

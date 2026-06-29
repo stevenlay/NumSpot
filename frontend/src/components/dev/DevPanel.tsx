@@ -15,9 +15,9 @@ export default function DevPanel() {
 
   // Handle navigation after quick-create (Home may not be mounted to do this itself)
   useEffect(() => {
-    if (phase === 'lobby') navigate('/lobby', { replace: true })
-    else if (phase === 'playing') navigate('/game', { replace: true })
-  }, [phase, navigate])
+    if (phase === 'lobby' && roomCode) navigate(`/lobby/${roomCode}`, { replace: true })
+    else if (phase === 'playing' && roomCode) navigate(`/game/${roomCode}`, { replace: true })
+  }, [phase, roomCode, navigate])
 
   useEffect(() => {
     registerBotCountListener(setActiveBotCount)

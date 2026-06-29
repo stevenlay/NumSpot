@@ -59,10 +59,10 @@ export default function Game() {
   useEffect(() => {
     if (phase === 'home') {
       navigate('/', { replace: true })
-    } else if (phase === 'lobby') {
-      navigate('/lobby', { replace: true })
+    } else if (phase === 'lobby' && roomCode) {
+      navigate(`/lobby/${roomCode}`, { replace: true })
     }
-  }, [phase, navigate])
+  }, [phase, roomCode, navigate])
 
   useEffect(() => {
     if (lastClaim === null) setClaimSent(false)

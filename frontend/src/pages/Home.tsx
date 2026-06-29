@@ -20,14 +20,15 @@ export default function Home() {
   const resetError = useGameStore((s) => s.resetError)
   const navigate = useNavigate()
   const phase = useGameStore((s) => s.phase)
+  const storeRoomCode = useGameStore((s) => s.roomCode)
 
   useEffect(() => {
-    if (phase === 'lobby') {
-      navigate('/lobby', { replace: true })
-    } else if (phase === 'playing') {
-      navigate('/game', { replace: true })
+    if (phase === 'lobby' && storeRoomCode) {
+      navigate(`/lobby/${storeRoomCode}`, { replace: true })
+    } else if (phase === 'playing' && storeRoomCode) {
+      navigate(`/game/${storeRoomCode}`, { replace: true })
     }
-  }, [phase, navigate])
+  }, [phase, storeRoomCode, navigate])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
