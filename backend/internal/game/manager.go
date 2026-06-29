@@ -1,9 +1,9 @@
 package game
 
 import (
-	"math/rand"
+	crand "crypto/rand"
+	"math/big"
 	"sync"
-	"time"
 )
 
 const roomCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -11,24 +11,23 @@ const roomCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 type Manager struct {
 	rooms map[string]*Room
 	mu    sync.RWMutex
-	rng   *rand.Rand
 }
 
 func NewManager() *Manager {
 	return &Manager{
 		rooms: make(map[string]*Room),
-		rng:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
-// GenerateCode creates a unique 6-character alphanumeric room code.
-func (m *Manager) GenerateCode() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// generateCodeLocked creates a unique 6-character alphanumeric room code.
+// Must be called with m.mu write lock held.
+func (m *Manager) generateCodeLocked() string {
+	n := big.NewInt(int64(len(roomCodeChars)))
 	for {
 		code := make([]byte, 6)
 		for i := range code {
-			code[i] = roomCodeChars[m.rng.Intn(len(roomCodeChars))]
+			idx, _ := crand.Int(crand.Reader, n)
+			code[i] = roomCodeChars[idx.Int64()]
 		}
 		s := string(code)
 		if _, exists := m.rooms[s]; !exists {
@@ -38,11 +37,11 @@ func (m *Manager) GenerateCode() string {
 }
 
 // CreateRoom creates a new room with the given host.
+// The code check and insertion are atomic under a single write lock.
 func (m *Manager) CreateRoom(hostID, hostName string) (*Room, error) {
-	code := m.GenerateCode()
-	room := NewRoom(code, hostID, hostName)
-
 	m.mu.Lock()
+	code := m.generateCodeLocked()
+	room := NewRoom(code, hostID, hostName)
 	m.rooms[code] = room
 	m.mu.Unlock()
 
