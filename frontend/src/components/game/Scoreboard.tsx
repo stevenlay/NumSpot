@@ -48,8 +48,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
 
   return (
     <div className={cn('w-full', className)}>
-      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Scores</h2>
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-nowrap gap-1.5">
         {sorted.map((p, i) => {
           const isLeader = p.score === maxScore && maxScore > 0
           const isYou = p.id === currentPlayerId
@@ -58,12 +57,12 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
               key={p.id}
               variant={isLeader ? 'default' : 'secondary'}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium h-auto',
+                'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium h-auto',
                 isLeader && 'bg-yellow-50 border border-yellow-300 text-yellow-800 hover:bg-yellow-50',
                 isYou && 'ring-2 ring-primary ring-offset-1',
               )}
             >
-              <span className="text-sm font-semibold">{i + 1}.</span>
+              <span className="font-semibold">{i + 1}.</span>
               <span>{p.name}{isYou ? ' (you)' : ''}</span>
               <span className="font-bold">{p.score}</span>
             </Badge>

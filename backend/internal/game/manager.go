@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-const roomCodeChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const roomCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 type Manager struct {
 	rooms map[string]*Room
