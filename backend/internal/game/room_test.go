@@ -54,15 +54,18 @@ func TestStartGame(t *testing.T) {
 		}
 	})
 
-	t.Run("deck size equals total cards minus dealt", func(t *testing.T) {
+	t.Run("total cards left equals cards distributed to players minus their current cards", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
 		r.AddPlayer("p2", "P2")
 		r.AddPlayer("p3", "P3")
 		r.StartGame(StartGameOptions{})
 
-		want := 57 - 1 - len(r.Players)
-		if len(r.Deck) != want {
-			t.Errorf("deck size = %d, want %d", len(r.Deck), want)
+		numPlayers := len(r.Players)
+		cardsPerPlayer := (57 - 1) / numPlayers
+		wantTotalLeft := numPlayers * (cardsPerPlayer - 1) // each player has cardsPerPlayer-1 remaining after their current card
+		got := r.TotalCardsLeft()
+		if got != wantTotalLeft {
+			t.Errorf("TotalCardsLeft = %d, want %d", got, wantTotalLeft)
 		}
 	})
 
@@ -99,7 +102,7 @@ func TestClaim(t *testing.T) {
 		host := r.Players["host"]
 
 		oldPlayerCard := append([]int{}, host.Card...)
-		oldDeckSize := len(r.Deck)
+		oldCardsLeft := host.CardsLeft
 
 		symbol := FindMatch(host.Card, r.CenterCard)
 		result := r.Claim("host", symbol)
@@ -117,12 +120,12 @@ func TestClaim(t *testing.T) {
 		if !slicesEqual(r.CenterCard, oldPlayerCard) {
 			t.Errorf("CenterCard = %v, want player's old card %v", r.CenterCard, oldPlayerCard)
 		}
-		// Player should have a fresh deck card
+		// Player should have a fresh card from their private deck
 		if slicesEqual(host.Card, oldPlayerCard) {
 			t.Error("player card should have changed after correct claim")
 		}
-		if len(r.Deck) != oldDeckSize-1 {
-			t.Errorf("deck size = %d, want %d", len(r.Deck), oldDeckSize-1)
+		if host.CardsLeft != oldCardsLeft-1 {
+			t.Errorf("CardsLeft = %d, want %d", host.CardsLeft, oldCardsLeft-1)
 		}
 	})
 
@@ -143,7 +146,7 @@ func TestClaim(t *testing.T) {
 		}
 
 		oldCenter := append([]int{}, r.CenterCard...)
-		oldDeckSize := len(r.Deck)
+		oldCardsLeft := host.CardsLeft
 
 		result := r.Claim("host", wrongSymbol)
 
@@ -159,8 +162,8 @@ func TestClaim(t *testing.T) {
 		if !slicesEqual(r.CenterCard, oldCenter) {
 			t.Error("CenterCard should not change on wrong claim")
 		}
-		if len(r.Deck) != oldDeckSize {
-			t.Error("deck should not advance on wrong claim")
+		if host.CardsLeft != oldCardsLeft {
+			t.Error("CardsLeft should not change on wrong claim")
 		}
 		if !host.penalizedUntil.After(time.Now()) {
 			t.Error("player should be penalized after wrong claim")
@@ -219,7 +222,7 @@ func TestClaim(t *testing.T) {
 		r := newPlayingRoom(t)
 		host := r.Players["host"]
 
-		r.Deck = r.Deck[:0] // exhaust the deck before the claim
+		host.deck = nil // exhaust the player's private deck before the claim
 
 		symbol := FindMatch(host.Card, r.CenterCard)
 		result := r.Claim("host", symbol)

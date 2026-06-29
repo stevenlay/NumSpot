@@ -11,17 +11,19 @@ interface GameShellProps {
   headerExtras?: React.ReactNode
   /** Content rendered in the left sidebar below the room code section. */
   sidebarContent: React.ReactNode
+  /** Banner rendered between the sidebars, above the main content. */
+  centerBanner?: React.ReactNode
   /** Main content area. */
   children: React.ReactNode
 }
 
-export default function GameShell({ banner, headerExtras, sidebarContent, children }: GameShellProps) {
+export default function GameShell({ banner, headerExtras, sidebarContent, centerBanner, children }: GameShellProps) {
   const roomCode = useGameStore((s) => s.roomCode)
   const goHome = useGameStore((s) => s.goHome)
   const [copied, setCopied] = useState(false)
 
   const copyCode = () => {
-    navigator.clipboard.writeText(roomCode).catch(() => {})
+    navigator.clipboard.writeText(roomCode).catch(() => { })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -70,7 +72,10 @@ export default function GameShell({ banner, headerExtras, sidebarContent, childr
           {sidebarContent}
         </aside>
 
-        {children}
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
+          {centerBanner}
+          {children}
+        </div>
 
         <ChatPanel />
       </div>

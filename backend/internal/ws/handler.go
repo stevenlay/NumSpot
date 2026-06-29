@@ -218,7 +218,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	state := room.State
 	centerCard := make([]int, len(room.CenterCard))
 	copy(centerCard, room.CenterCard)
-	deckSize := len(room.Deck)
+	deckSize := room.TotalCardsLeft()
 	room.RUnlock()
 
 	if state != game.StateWaiting {
@@ -239,7 +239,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 					room.RLock()
 					centerCard := make([]int, len(room.CenterCard))
 					copy(centerCard, room.CenterCard)
-					deckSize := len(room.Deck)
+					deckSize := room.TotalCardsLeft()
 					newPlayer := room.Players[c.ID]
 					room.RUnlock()
 
@@ -307,7 +307,43 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	}
 
 	if err := room.AddPlayer(c.ID, name); err != nil {
-		h.sendError(c, err.Error())
+		// Room full in lobby — join as spectator instead of rejecting.
+		c.Name = name
+		c.RoomCode = code
+		c.IsSpectator = true
+		room.AddSpectator(c.ID, name, c)
+		h.registerClient(code, c)
+
+		h.broadcastExcept(code, c.ID, OutboundMessage{
+			Type:    MsgSpectatorJoined,
+			Payload: SpectatorJoinedPayload{Spectator: SpectatorInfo{ID: c.ID, Name: name}},
+		})
+
+		entries := room.SpectatorList()
+		spectators := make([]SpectatorInfo, len(entries))
+		for i, s := range entries {
+			spectators[i] = SpectatorInfo{ID: s.ID, Name: s.Name}
+		}
+
+		room.RLock()
+		lobbySettings := room.Settings
+		lastWinnerID := room.LastWinnerID
+		lastGamePlayers := room.LastGamePlayers
+		room.RUnlock()
+		h.sendTo(c, OutboundMessage{
+			Type: MsgRoomJoined,
+			Payload: RoomJoinedPayload{
+				RoomCode:        code,
+				PlayerID:        c.ID,
+				IsHost:          false,
+				IsSpectator:     true,
+				Players:         room.PlayerList(),
+				Settings:        lobbySettings,
+				Spectators:      spectators,
+				LastWinnerID:    lastWinnerID,
+				LastGamePlayers: lastGamePlayers,
+			},
+		})
 		return
 	}
 
@@ -385,7 +421,7 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 	room.RLock()
 	centerCard := make([]int, len(room.CenterCard))
 	copy(centerCard, room.CenterCard)
-	deckSize := len(room.Deck)
+	deckSize := room.TotalCardsLeft()
 	room.RUnlock()
 
 	players := room.PlayerList()

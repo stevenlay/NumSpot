@@ -51,11 +51,14 @@ func defaultRoomSettings() RoomSettings {
 }
 
 type Player struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Score int    `json:"score"`
-	Card  []int  `json:"card"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Score        int    `json:"score"`
+	SessionScore int    `json:"session_score"`
+	Card         []int  `json:"card"`
+	CardsLeft    int    `json:"cards_left"`
 
+	deck          [][]int
 	penalizedUntil time.Time
 }
 
@@ -101,6 +104,16 @@ func (r *Room) Lock()    { r.mu.Lock() }
 func (r *Room) Unlock()  { r.mu.Unlock() }
 func (r *Room) RLock()   { r.mu.RLock() }
 func (r *Room) RUnlock() { r.mu.RUnlock() }
+
+// TotalCardsLeft returns the sum of all players' remaining private deck sizes.
+// Caller must hold at least a read lock.
+func (r *Room) TotalCardsLeft() int {
+	total := 0
+	for _, p := range r.Players {
+		total += p.CardsLeft
+	}
+	return total
+}
 
 // AddPlayer adds a new player to the room. Returns error if room is not in waiting state or full.
 func (r *Room) AddPlayer(playerID, name string) error {
@@ -244,19 +257,8 @@ func (r *Room) AddPlayerMidGame(playerID, name string) error {
 	if len(r.Players) >= r.Settings.MaxPlayers {
 		return errors.New("room is full")
 	}
-	if len(r.Deck) == 0 {
-		return errors.New("no cards left in deck")
-	}
-
-	last := len(r.Deck) - 1
-	card := r.Deck[last]
-	r.Deck = r.Deck[:last]
-	r.Players[playerID] = &Player{
-		ID:   playerID,
-		Name: name,
-		Card: card,
-	}
-	return nil
+	// Mid-game joins are no longer supported once per-player decks are distributed.
+	return errors.New("no cards left in deck")
 }
 
 // StartGame initializes and shuffles the deck, deals cards. Returns error if not ready.
@@ -295,8 +297,9 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 		deck[i] = ToDisplay(card)
 	}
 
-	// Deal one card to each player, one to center
-	if len(deck) < len(r.Players)+1 {
+	// Deal center card and distribute remaining cards evenly to per-player decks
+	numPlayers := len(r.Players)
+	if len(deck) < numPlayers+1 {
 		return errors.New("not enough cards")
 	}
 
@@ -304,13 +307,25 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 	r.CenterCard = deck[last]
 	deck = deck[:last]
 
+	// Distribute remaining cards evenly; leftover cards are discarded
+	cardsPerPlayer := len(deck) / numPlayers
+	playerList := make([]*Player, 0, numPlayers)
 	for _, p := range r.Players {
-		last = len(deck) - 1
-		p.Card = deck[last]
-		deck = deck[:last]
+		playerList = append(playerList, p)
+	}
+	for i, p := range playerList {
+		alloc := deck[i*cardsPerPlayer : (i+1)*cardsPerPlayer]
+		p.Card = alloc[0]
+		if len(alloc) > 1 {
+			p.deck = make([][]int, len(alloc)-1)
+			copy(p.deck, alloc[1:])
+		} else {
+			p.deck = nil
+		}
+		p.CardsLeft = len(p.deck)
 	}
 
-	r.Deck = deck
+	r.Deck = nil
 	r.State = StatePlaying
 	r.wrongClaimDelay = time.Duration(r.Settings.WrongClaimPenaltyMs) * time.Millisecond
 	r.correctClaimDelay = time.Duration(r.Settings.CorrectClaimLockMs) * time.Millisecond
@@ -360,12 +375,13 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	r.claimLockedUntil = now.Add(r.correctClaimDelay)
 	p.Score++
 
-	// Player's card becomes the new center; player draws a fresh card from deck
+	// Player's card becomes the new center; player draws from their private deck
 	r.CenterCard = p.Card
-	if len(r.Deck) > 0 {
-		last := len(r.Deck) - 1
-		p.Card = r.Deck[last]
-		r.Deck = r.Deck[:last]
+	if len(p.deck) > 0 {
+		last := len(p.deck) - 1
+		p.Card = p.deck[last]
+		p.deck = p.deck[:last]
+		p.CardsLeft = len(p.deck)
 	} else {
 		r.State = StateFinished
 	}
@@ -381,13 +397,18 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		players = append(players, pl)
 	}
 
+	totalCardsLeft := 0
+	for _, pl := range r.Players {
+		totalCardsLeft += pl.CardsLeft
+	}
+
 	return ClaimResult{
 		Correct:    true,
 		GameOver:   gameOver,
 		CenterCard: r.CenterCard,
 		Players:    players,
 		WinnerID:   winnerID,
-		DeckSize:   len(r.Deck),
+		DeckSize:   totalCardsLeft,
 	}
 }
 
@@ -428,8 +449,11 @@ func (r *Room) ForceResetToLobby() {
 // resetLocked performs the actual reset. Must be called with lock held.
 func (r *Room) resetLocked() {
 	for _, p := range r.Players {
+		p.SessionScore += p.Score
 		p.Score = 0
 		p.Card = nil
+		p.deck = nil
+		p.CardsLeft = 0
 	}
 	r.Deck = nil
 	r.CenterCard = nil

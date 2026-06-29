@@ -2,6 +2,8 @@ export interface Player {
   id: string
   name: string
   score: number
+  session_score: number
+  cards_left: number
   card: number[]
 }
 

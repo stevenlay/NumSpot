@@ -38,7 +38,7 @@ export default function DevPanel() {
   return (
     <div className="fixed bottom-4 left-4 z-50 flex flex-col items-start gap-2">
       {open && (
-        <div className="bg-card border border-border rounded-xl p-4 shadow-lg w-60 flex flex-col gap-4">
+        <div className="bg-card border border-border p-4 shadow-lg w-60 flex flex-col gap-4">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Dev Tools</span>
 
           {/* Quick actions */}

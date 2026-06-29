@@ -33,11 +33,14 @@ export default function Lobby() {
   const roomCode = useGameStore((s) => s.roomCode)
   const players = useGameStore((s) => s.players)
   const isHost = useGameStore((s) => s.isHost)
+  const isSpectator = useGameStore((s) => s.isSpectator)
   const phase = useGameStore((s) => s.phase)
   const playerId = useGameStore((s) => s.playerId)
   const settings = useGameStore((s) => s.settings)
+  const spectators = useGameStore((s) => s.spectators)
   const startGame = useGameStore((s) => s.startGame)
   const updateSettings = useGameStore((s) => s.updateSettings)
+  const joinAsPlayer = useGameStore((s) => s.joinAsPlayer)
   const goHome = useGameStore((s) => s.goHome)
   const disconnected = useGameStore((s) => s.disconnected)
   const error = useGameStore((s) => s.error)
@@ -53,32 +56,63 @@ export default function Lobby() {
   if (phase === 'playing') return <Navigate to="/game" replace />
 
   const copyCode = () => {
-    navigator.clipboard.writeText(roomCode).catch(() => {})
+    navigator.clipboard.writeText(roomCode).catch(() => { })
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
     <GameShell
+      centerBanner={
+        !isSpectator && (
+          <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-blue-50 text-blue-700 px-6 py-2.5 text-xs shrink-0">
+            <span className="shrink-0">💡</span>
+            <span>Find the one number shared between your card and the center card, then tap it to claim!</span>
+          </div>
+        )
+      }
       sidebarContent={
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Players ({players.length}/{settings.max_players})
           </span>
-          {players.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm">
-              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                {p.name.charAt(0).toUpperCase()}
+          {(() => {
+            const showScores = players.some((p) => p.session_score > 0)
+            return players.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                  {p.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="font-medium truncate text-foreground flex-1">
+                  {p.name}{p.id === playerId ? ' (you)' : ''}
+                </span>
+                {showScores && (
+                  <span className="font-bold text-xs text-primary shrink-0">{p.session_score}</span>
+                )}
               </div>
-              <span className="font-medium truncate text-foreground">
-                {p.name}{p.id === playerId ? ' (you)' : ''}
+            ))
+          })()}
+          {spectators.length > 0 && (
+            <>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2">
+                Spectating ({spectators.length})
               </span>
-            </div>
-          ))}
+              {spectators.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-muted-foreground">
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center font-bold text-xs shrink-0">
+                    {s.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="truncate">
+                    {s.name}{s.id === playerId ? ' (you)' : ''}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       }
     >
-      <main className="flex-1 flex flex-col justify-center p-6 overflow-y-auto min-w-0 gap-5">
+      <main className="flex-1 flex flex-col p-6 overflow-y-auto min-w-0 gap-5">
 
         {/* Alerts */}
         {disconnected && (
@@ -100,7 +134,7 @@ export default function Lobby() {
 
         {/* Game over results */}
         {gameOverToast && (
-          <div className="w-full rounded-xl border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">
+          <div className="w-full border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">
             <div className="flex items-center justify-center gap-2 text-center">
               <span className="text-2xl">🏆</span>
               <span className="text-xl font-extrabold text-foreground">
@@ -160,21 +194,44 @@ export default function Lobby() {
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Players ({players.length}/{settings.max_players})
             </span>
-            {players.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5">
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                  {p.name.charAt(0).toUpperCase()}
+            {(() => {
+              const showScores = players.some((p) => p.session_score > 0)
+              return players.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5">
+                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="font-medium text-foreground text-sm flex-1">
+                    {p.name}{p.id === playerId ? ' (you)' : ''}
+                  </span>
+                  {showScores && (
+                    <span className="font-bold text-sm text-primary shrink-0">{p.session_score}</span>
+                  )}
                 </div>
-                <span className="font-medium text-foreground text-sm">
-                  {p.name}{p.id === playerId ? ' (you)' : ''}
+              ))
+            })()}
+            {spectators.length > 0 && (
+              <>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2">
+                  Spectating ({spectators.length})
                 </span>
-              </div>
-            ))}
+                {spectators.map((s) => (
+                  <div key={s.id} className="flex items-center gap-3 bg-muted/30 rounded-lg px-4 py-2.5">
+                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center font-bold text-xs shrink-0 text-muted-foreground">
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-muted-foreground text-sm">
+                      {s.name}{s.id === playerId ? ' (you)' : ''}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
 
         {/* Settings */}
-        <div className="w-full rounded-xl border border-border bg-card p-6 flex flex-col gap-3">
+        <div className="w-full border border-border bg-card p-6 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Settings</span>
             {!isHost && <span className="text-[10px] text-muted-foreground">Host only</span>}
@@ -295,19 +352,37 @@ export default function Lobby() {
           </div>
         </div>
 
-        {/* Start game */}
+        {/* Start game / spectator join */}
         <div className="w-full flex flex-col items-center gap-3">
-          <p className="text-sm text-muted-foreground text-center">
-            {isHost ? 'Ready when you are.' : 'Waiting for the host to start…'}
-          </p>
-          <Button
-            onClick={() => { if (isHost) { setStarting(true); startGame() } }}
-            disabled={!isHost || starting || disconnected}
-            size="lg"
-            className="w-full"
-          >
-            {starting ? 'Starting…' : 'Start Game'}
-          </Button>
+          {isSpectator ? (
+            <>
+              <p className="text-sm text-muted-foreground text-center">
+                You're spectating. Join as a player when a slot opens.
+              </p>
+              <Button
+                onClick={joinAsPlayer}
+                disabled={players.length >= settings.max_players || disconnected}
+                size="lg"
+                className="w-full"
+              >
+                Join as Player
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground text-center">
+                {isHost ? 'Ready when you are.' : 'Waiting for the host to start…'}
+              </p>
+              <Button
+                onClick={() => { if (isHost) { setStarting(true); startGame() } }}
+                disabled={!isHost || starting || disconnected}
+                size="lg"
+                className="w-full"
+              >
+                {starting ? 'Starting…' : 'Start Game'}
+              </Button>
+            </>
+          )}
         </div>
       </main>
     </GameShell>

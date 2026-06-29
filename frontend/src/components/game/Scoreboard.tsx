@@ -34,7 +34,10 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                   <span>{`${i + 1}.`}</span>
                   <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
                 </div>
-                <span className="font-bold shrink-0 ml-2">{p.score}</span>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="font-bold">{p.score}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{p.cards_left} left</span>
+                </div>
               </div>
             )
           })}

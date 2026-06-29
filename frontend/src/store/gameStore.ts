@@ -88,8 +88,9 @@ function handleMessage(
     case 'room_joined': {
       const p = msg.payload as RoomJoinedPayload
       if (p.is_spectator) {
+        const inGame = (p.center_card ?? []).length > 0
         set({
-          phase: 'playing',
+          phase: inGame ? 'playing' : 'lobby',
           playerId: p.player_id,
           roomCode: p.room_code,
           isHost: false,
