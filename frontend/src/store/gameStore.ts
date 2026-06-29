@@ -5,10 +5,8 @@ import type {
   Spectator,
   WsMessage,
   RoomJoinedPayload,
-  RejoinedRoomPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
-  PlayerRejoinedPayload,
   GameStartedPayload,
   ClaimResultPayload,
   GameOverPayload,
@@ -19,27 +17,6 @@ import type {
 const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 const WS_URL = import.meta.env.VITE_WS_URL || `${proto}://${window.location.host}/ws`
 
-const SESSION_KEY = 'numspot_session'
-
-function saveSession(roomCode: string, token: string) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify({ roomCode, token }))
-}
-
-function loadSession(roomCode: string): string | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const saved = JSON.parse(raw) as { roomCode: string; token: string }
-    return saved.roomCode === roomCode ? saved.token : null
-  } catch {
-    return null
-  }
-}
-
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY)
-}
-
 export interface GameStore {
   phase: GamePhase
   playerId: string
@@ -47,7 +24,6 @@ export interface GameStore {
   roomCode: string
   isHost: boolean
   isSpectator: boolean
-  token: string
   players: Player[]
   spectators: Spectator[]
   centerCard: number[]
@@ -60,11 +36,8 @@ export interface GameStore {
   error: string | null
   _ws: WebSocket | null
 
-  _pendingRejoin: boolean
-
   // Actions
   connect: (name: string, roomCode?: string) => void
-  rejoin: () => void
   startGame: () => void
   claim: (symbol: number) => void
   resetError: () => void
@@ -80,15 +53,12 @@ function handleMessage(
     case 'room_joined': {
       const p = msg.payload as RoomJoinedPayload
       if (p.is_spectator) {
-        // Restore token from localStorage so the player can rejoin if they were previously a participant
-        const savedToken = loadSession(p.room_code)
         set({
           phase: 'playing',
           playerId: p.player_id,
           roomCode: p.room_code,
           isHost: false,
           isSpectator: true,
-          token: savedToken ?? '',
           players: p.players,
           spectators: p.spectators ?? [],
           centerCard: p.center_card ?? [],
@@ -96,8 +66,6 @@ function handleMessage(
           disconnected: false,
         })
       } else {
-        const token = p.token ?? ''
-        if (token) saveSession(p.room_code, token)
         set({
           phase: 'lobby',
           playerId: p.player_id,
@@ -105,29 +73,9 @@ function handleMessage(
           isHost: p.is_host,
           isSpectator: false,
           players: p.players,
-          token,
           disconnected: false,
         })
       }
-      break
-    }
-    case 'rejoined_room': {
-      const p = msg.payload as RejoinedRoomPayload
-      saveSession(p.room_code, p.token)
-      set({
-        phase: 'playing',
-        _pendingRejoin: false,
-        playerId: p.player_id,
-        roomCode: p.room_code,
-        isHost: p.is_host,
-        isSpectator: false,
-        token: p.token,
-        players: p.players,
-        spectators: p.spectators ?? [],
-        centerCard: p.center_card,
-        deckSize: p.deck_size,
-        disconnected: false,
-      })
       break
     }
     case 'player_joined': {
@@ -137,29 +85,11 @@ function handleMessage(
     }
     case 'player_left': {
       const p = msg.payload as PlayerLeftPayload
-      const { phase } = get()
-      if (phase === 'playing' || phase === 'finished') {
-        // During game: mark disconnected but keep in scoreboard
-        set((s) => ({
-          players: s.players.map((pl) =>
-            pl.id === p.player_id ? { ...pl, connected: false } : pl
-          ),
-        }))
-      } else {
-        set((s) => ({ players: s.players.filter((pl) => pl.id !== p.player_id) }))
-      }
-      break
-    }
-    case 'player_rejoined': {
-      const p = msg.payload as PlayerRejoinedPayload
-      set((s) => {
-        const exists = s.players.some((pl) => pl.id === p.player.id)
-        return {
-          players: exists
-            ? s.players.map((pl) => (pl.id === p.player.id ? p.player : pl))
-            : [...s.players, p.player],
-        }
-      })
+      const { playerId } = get()
+      set((s) => ({
+        players: s.players.filter((pl) => pl.id !== p.player_id),
+        isHost: p.new_host_id === playerId ? true : s.isHost,
+      }))
       break
     }
     case 'game_started': {
@@ -200,19 +130,7 @@ function handleMessage(
     }
     case 'error': {
       const p = msg.payload as { message: string }
-      if (get()._pendingRejoin) {
-        // Token is stale — clear it and retry as a fresh join
-        clearSession()
-        set({ _pendingRejoin: false })
-        const { name, roomCode, _ws } = get()
-        if (_ws && roomCode) {
-          _ws.send(JSON.stringify({ type: 'join_room', payload: { code: roomCode, name } }))
-        } else {
-          set({ error: p.message })
-        }
-      } else {
-        set({ error: p.message })
-      }
+      set({ error: p.message })
       break
     }
     default:
@@ -241,7 +159,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roomCode: '',
   isHost: false,
   isSpectator: false,
-  token: '',
   players: [],
   spectators: [],
   centerCard: [],
@@ -253,7 +170,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   disconnected: false,
   error: null,
   _ws: null,
-  _pendingRejoin: false,
 
   connect: (name: string, roomCode?: string) => {
     const existing = get()._ws
@@ -269,69 +185,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     ws.onopen = () => {
       set({ connected: true })
       if (roomCode) {
-        const savedToken = loadSession(roomCode)
-        if (savedToken) {
-          set({ _pendingRejoin: true })
-          ws.send(JSON.stringify({
-            type: 'rejoin_room',
-            payload: { token: savedToken, code: roomCode },
-          }))
-        } else {
-          ws.send(JSON.stringify({
-            type: 'join_room',
-            payload: { code: roomCode, name },
-          }))
-        }
+        ws.send(JSON.stringify({
+          type: 'join_room',
+          payload: { code: roomCode, name },
+        }))
       } else {
         ws.send(JSON.stringify({
           type: 'create_room',
           payload: { name },
-        }))
-      }
-    }
-
-    ws.onmessage = (event: MessageEvent) => {
-      try {
-        const msg = JSON.parse(event.data as string) as WsMessage
-        handleMessage(msg, set, get)
-      } catch {
-        console.error('Failed to parse ws message', event.data)
-      }
-    }
-
-    ws.onclose = makeOnClose(set, get)
-
-    ws.onerror = () => {
-      set({ error: 'Connection error. Please try again.', connected: false })
-    }
-
-    set({ _ws: ws })
-  },
-
-  rejoin: () => {
-    const { roomCode, token, phase, name, _ws } = get()
-    if (_ws) {
-      _ws.onclose = null // suppress disconnect handler for intentional close
-      _ws.close()
-    }
-
-    // Keep disconnected:true until the server confirms success (rejoined_room / room_joined)
-    set({ error: null })
-
-    const ws = new WebSocket(WS_URL)
-
-    ws.onopen = () => {
-      set({ connected: true })
-      if ((phase === 'playing' || phase === 'finished') && token) {
-        ws.send(JSON.stringify({
-          type: 'rejoin_room',
-          payload: { token, code: roomCode },
-        }))
-      } else {
-        // Lobby reconnect: re-join with name
-        ws.send(JSON.stringify({
-          type: 'join_room',
-          payload: { code: roomCode, name },
         }))
       }
     }
@@ -370,12 +231,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   goHome: () => {
     const ws = get()._ws
-    const { phase } = get()
-    // Keep session alive when leaving mid-game so the player can rejoin later.
-    // Clear it when in lobby (player slot already freed) or finished (token is stale).
-    if (phase !== 'playing') {
-      clearSession()
-    }
     // Reset state first so onclose sees phase='home' and skips the disconnected flag
     set({
       phase: 'home',
@@ -384,7 +239,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roomCode: '',
       isHost: false,
       isSpectator: false,
-      token: '',
       players: [],
       spectators: [],
       centerCard: [],
@@ -396,7 +250,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       disconnected: false,
       error: null,
       _ws: null,
-      _pendingRejoin: false,
     })
     if (ws) ws.close()
   },

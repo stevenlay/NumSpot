@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import Home from './Home'
 import { useGameStore } from '../store/gameStore'
+import type { GameStore } from '../store/gameStore'
 
 vi.mock('../store/gameStore')
 
@@ -13,7 +14,9 @@ const mockResetError = vi.fn()
 function makeStore(overrides = {}) {
   return {
     phase: 'home',
+    name: '',
     error: null,
+    disconnected: false,
     connect: mockConnect,
     resetError: mockResetError,
     ...overrides,
@@ -23,7 +26,7 @@ function makeStore(overrides = {}) {
 function setup(overrides = {}) {
   const store = makeStore(overrides)
   vi.mocked(useGameStore).mockImplementation(
-    (selector: (s: typeof store) => unknown) => selector(store)
+    (selector: (s: GameStore) => unknown) => selector(store as unknown as GameStore)
   )
   const user = userEvent.setup()
   render(<MemoryRouter><Home /></MemoryRouter>)
@@ -34,6 +37,7 @@ beforeEach(() => {
   mockConnect.mockClear()
   mockResetError.mockClear()
 })
+
 
 describe('Home page', () => {
   it('renders title and slogan', () => {

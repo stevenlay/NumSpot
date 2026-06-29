@@ -24,9 +24,6 @@ export default function Game() {
   const goHome = useGameStore((s) => s.goHome)
   const isSpectator = useGameStore((s) => s.isSpectator)
   const disconnected = useGameStore((s) => s.disconnected)
-  const error = useGameStore((s) => s.error)
-  const resetError = useGameStore((s) => s.resetError)
-  const rejoin = useGameStore((s) => s.rejoin)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
 
@@ -159,12 +156,12 @@ export default function Game() {
       {disconnected && (
         <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
           <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
-            <span>{error ? `${error} —` : 'Connection lost.'}</span>
+            <span>Connection lost — you were removed from the game.</span>
             <button
-              onClick={() => { resetError(); rejoin() }}
+              onClick={goHome}
               className="underline font-semibold ml-2 shrink-0"
             >
-              Reconnect
+              Return Home
             </button>
           </AlertDescription>
         </Alert>
@@ -233,8 +230,8 @@ export default function Game() {
               />
 
               {isSpectator ? (
-                <div className="text-center text-muted-foreground text-sm py-6 border border-dashed border-border rounded-xl">
-                  You are spectating — watch the action above.
+                <div className="flex flex-col items-center gap-3 py-6 border border-dashed border-border rounded-xl">
+                  <p className="text-center text-muted-foreground text-sm">You are spectating — watch the action above.</p>
                 </div>
               ) : (
                 <NumberCard

@@ -3,7 +3,6 @@ export interface Player {
   name: string
   score: number
   card: number[]
-  connected?: boolean
 }
 
 export interface Spectator {
@@ -43,20 +42,8 @@ export interface RoomJoinedPayload {
   is_host: boolean
   is_spectator: boolean
   players: Player[]
-  token?: string
   center_card?: number[]
   deck_size?: number
-  spectators?: Spectator[]
-}
-
-export interface RejoinedRoomPayload {
-  room_code: string
-  player_id: string
-  is_host: boolean
-  token: string
-  players: Player[]
-  center_card: number[]
-  deck_size: number
   spectators?: Spectator[]
 }
 
@@ -66,18 +53,7 @@ export interface PlayerJoinedPayload {
 
 export interface PlayerLeftPayload {
   player_id: string
-}
-
-export interface PlayerRejoinedPayload {
-  player: Player
-}
-
-export interface SpectatorJoinedPayload {
-  spectator: Spectator
-}
-
-export interface SpectatorLeftPayload {
-  spectator_id: string
+  new_host_id?: string
 }
 
 export interface GameStartedPayload {
@@ -98,6 +74,14 @@ export interface ClaimResultPayload {
 export interface GameOverPayload {
   players: Player[]
   winner_id: string
+}
+
+export interface SpectatorJoinedPayload {
+  spectator: Spectator
+}
+
+export interface SpectatorLeftPayload {
+  spectator_id: string
 }
 
 export interface ErrorPayload {

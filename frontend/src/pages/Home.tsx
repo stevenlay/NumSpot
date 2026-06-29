@@ -23,6 +23,8 @@ export default function Home() {
   useEffect(() => {
     if (phase === 'lobby') {
       navigate('/lobby', { replace: true })
+    } else if (phase === 'playing') {
+      navigate('/game', { replace: true })
     }
   }, [phase, navigate])
 

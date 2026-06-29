@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Copy, Check } from 'lucide-react'
 
 export default function Lobby() {
@@ -12,7 +13,15 @@ export default function Lobby() {
   const phase = useGameStore((s) => s.phase)
   const startGame = useGameStore((s) => s.startGame)
   const goHome = useGameStore((s) => s.goHome)
+  const disconnected = useGameStore((s) => s.disconnected)
+  const error = useGameStore((s) => s.error)
+  const resetError = useGameStore((s) => s.resetError)
   const [copied, setCopied] = useState(false)
+  const [starting, setStarting] = useState(false)
+
+  useEffect(() => {
+    if (error) setStarting(false)
+  }, [error])
 
   if (phase === 'playing' || phase === 'finished') return <Navigate to="/game" replace />
 
@@ -34,6 +43,29 @@ export default function Lobby() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
+          {disconnected ? (
+            <Alert variant="destructive">
+              <AlertDescription className="flex items-center justify-between">
+                <span>Connection lost.</span>
+                <button
+                  onClick={goHome}
+                  className="underline font-semibold ml-2 shrink-0"
+                >
+                  Return Home
+                </button>
+              </AlertDescription>
+            </Alert>
+          ) : error && (
+            <Alert variant="destructive">
+              <AlertDescription className="flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={resetError} className="underline font-semibold ml-2 shrink-0">
+                  Dismiss
+                </button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex flex-col items-center gap-3">
             <div className="border-2 border-border rounded-xl px-8 py-3">
               <span className="text-3xl font-black tracking-[0.3em] text-foreground font-mono">{roomCode}</span>
@@ -65,8 +97,13 @@ export default function Lobby() {
 
           {isHost ? (
             <div className="flex flex-col gap-2">
-              <Button onClick={startGame} size="lg" className="w-full">
-                Start Game
+              <Button
+                onClick={() => { setStarting(true); startGame() }}
+                disabled={starting || disconnected}
+                size="lg"
+                className="w-full"
+              >
+                {starting ? 'Starting…' : 'Start Game'}
               </Button>
             </div>
           ) : null}

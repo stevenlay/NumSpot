@@ -16,11 +16,13 @@ const (
 
 // WSClient is a WebSocket client connected to a room.
 type WSClient struct {
-	ID       string
-	RoomCode string
-	Send     chan []byte
-	conn     *websocket.Conn
-	handler  *Handler
+	ID          string
+	PlayerID    string // stable player identity; equals ID for new connections, original player ID for rejoins
+	IsSpectator bool
+	RoomCode    string
+	Send        chan []byte
+	conn        *websocket.Conn
+	handler     *Handler
 }
 
 // GetID implements game.Client.
@@ -35,6 +37,11 @@ func (c *WSClient) SendMsg(data []byte) {
 	default:
 		// Drop message if channel full
 	}
+}
+
+// Close implements game.Client.
+func (c *WSClient) Close() {
+	c.conn.Close()
 }
 
 // readPump reads messages from the WebSocket connection and passes them to the handler.

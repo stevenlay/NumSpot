@@ -63,7 +63,7 @@ func (h *Handler) ServeWS(c *gin.Context) {
 	id := uuid.New().String()
 	client := &WSClient{
 		ID:       id,
-		PlayerID: id, // overwritten on rejoin
+		PlayerID: id,
 		Send:     make(chan []byte, 256),
 		conn:     conn,
 		handler:  h,
@@ -115,12 +115,13 @@ func (h *Handler) unregister(c *WSClient) {
 			})
 		}
 	} else {
-		var playerDisconnected bool
-		empty, playerDisconnected = room.RemovePlayer(c.PlayerID, c.ID)
-		if playerDisconnected && !empty {
+		var playerLeft bool
+		var newHostID string
+		empty, playerLeft, newHostID = room.RemovePlayer(c.PlayerID)
+		if playerLeft && !empty {
 			h.broadcast(c.RoomCode, OutboundMessage{
 				Type:    MsgPlayerLeft,
-				Payload: PlayerLeftPayload{PlayerID: c.PlayerID},
+				Payload: PlayerLeftPayload{PlayerID: c.PlayerID, NewHostID: newHostID},
 			})
 		}
 	}
@@ -143,8 +144,6 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 		h.handleCreateRoom(c, msg.Payload)
 	case MsgJoinRoom:
 		h.handleJoinRoom(c, msg.Payload)
-	case MsgRejoinRoom:
-		h.handleRejoinRoom(c, msg.Payload)
 	case MsgStartGame:
 		h.handleStartGame(c)
 	case MsgClaim:
@@ -172,10 +171,6 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 	room.RegisterClient(c.ID, c)
 	h.registerClient(room.Code, c)
 
-	room.RLock()
-	token := room.Players[c.ID].Token
-	room.RUnlock()
-
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
@@ -183,7 +178,6 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 			PlayerID: c.ID,
 			IsHost:   true,
 			Players:  room.PlayerList(),
-			Token:    token,
 		},
 	})
 }
@@ -274,65 +268,6 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 			PlayerID: c.ID,
 			IsHost:   false,
 			Players:  room.PlayerList(),
-			Token:    newPlayer.Token,
-		},
-	})
-}
-
-func (h *Handler) handleRejoinRoom(c *WSClient, payload map[string]interface{}) {
-	token, _ := payload["token"].(string)
-	code, _ := payload["code"].(string)
-	if token == "" || code == "" {
-		h.sendError(c, "token and code are required")
-		return
-	}
-
-	room, ok := h.manager.GetRoom(code)
-	if !ok {
-		h.sendError(c, "room not found")
-		return
-	}
-
-	player, err := room.RejoinPlayer(token, c)
-	if err != nil {
-		h.sendError(c, err.Error())
-		return
-	}
-
-	// Use the player's original ID for all game-layer operations
-	c.PlayerID = player.ID
-	c.RoomCode = code
-	h.registerClient(code, c)
-
-	room.RLock()
-	centerCard := make([]int, len(room.CenterCard))
-	copy(centerCard, room.CenterCard)
-	deckSize := len(room.Deck)
-	isHost := room.HostID == player.ID
-	room.RUnlock()
-
-	h.broadcastExcept(code, c.ID, OutboundMessage{
-		Type:    MsgPlayerRejoined,
-		Payload: PlayerRejoinedPayload{Player: player},
-	})
-
-	entries := room.SpectatorList()
-	spectators := make([]SpectatorInfo, len(entries))
-	for i, s := range entries {
-		spectators[i] = SpectatorInfo{ID: s.ID, Name: s.Name}
-	}
-
-	h.sendTo(c, OutboundMessage{
-		Type: MsgRejoinedRoom,
-		Payload: RejoinedRoomPayload{
-			RoomCode:   code,
-			PlayerID:   player.ID,
-			IsHost:     isHost,
-			Token:      token,
-			Players:    room.PlayerList(),
-			CenterCard: centerCard,
-			DeckSize:   deckSize,
-			Spectators: spectators,
 		},
 	})
 }
