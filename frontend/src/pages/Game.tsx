@@ -197,15 +197,6 @@ export default function Game() {
             <div className="w-full max-w-md flex flex-col gap-4">
               <div className="flex flex-col gap-4 sm:gap-10 pt-2 sm:pt-8">
                 <div className="flex flex-col gap-1.5">
-                  <NumberCard
-                    key={centerCard.join(',')}
-                    numbers={centerCard}
-                    label="Center Card"
-                    highlightNumber={highlightNum}
-                    clickable={false}
-                    showPile={players.some((p) => p.score > 0)}
-                    className="w-full"
-                  />
                   {lastClaim?.correct && (
                     <div className="flex flex-col gap-1.5">
                       <div className="h-2 w-full rounded-full bg-green-100 overflow-hidden">
@@ -218,6 +209,15 @@ export default function Game() {
                       <p className="text-center text-sm font-medium text-green-600">Next round starting…</p>
                     </div>
                   )}
+                  <NumberCard
+                    key={centerCard.join(',')}
+                    numbers={centerCard}
+                    label="Center Card"
+                    highlightNumber={highlightNum}
+                    clickable={false}
+                    showPile={players.some((p) => p.score > 0)}
+                    className="w-full"
+                  />
                 </div>
 
                 {isSpectator ? (
@@ -227,7 +227,7 @@ export default function Game() {
                 ) : (
                   <div className="flex flex-col gap-2">
                     <div
-                      key={myCard.join(',')}
+                      key={`${myCard.join(',')}${lastClaim?.correct && lastClaim.playerId === playerId ? '-s' : ''}`}
                       className={cn(lastClaim?.correct && lastClaim.playerId === playerId && 'animate-card-slide-to-center')}
                     >
                       <NumberCard
