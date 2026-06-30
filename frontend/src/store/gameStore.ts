@@ -164,26 +164,36 @@ function handleMessage(
     }
     case 'claim_result': {
       const p = msg.payload as ClaimResultPayload
-      set({ lastClaim: { playerId: p.player_id, symbol: p.symbol, correct: p.correct } })
       const playerName = get().players.find((pl) => pl.id === p.player_id)?.name ?? 'Someone'
+      const newLastClaim = { playerId: p.player_id, symbol: p.symbol, correct: p.correct }
       if (p.correct) {
         const claimElapsedMs = Date.now() - (get().roundStartedAt ?? Date.now())
-        addStatusEntry(set, `${playerName} got it! +1`, { claimElapsedMs })
-        // Snapshot the claiming player's old card so we can animate it sliding to center
         const { playerId } = get()
         const claimingCard = p.player_id === playerId
           ? (get().players.find((pl) => pl.id === playerId)?.card ?? null)
           : null
-        // Update center card, full player data, and deck size immediately
-        set({
+        const statusEntry: ChatEntry = {
+          id: crypto.randomUUID(), kind: 'status',
+          text: `${playerName} got it! +1`, timestamp: Date.now(), claimElapsedMs,
+        }
+        set((s) => ({
+          lastClaim: newLastClaim,
           claimingCard,
-          centerCard: p.center_card ?? get().centerCard,
-          ...(p.players ? { players: p.players } : {}),
+          centerCard: p.center_card ?? s.centerCard,
+          players: p.players ?? s.players,
           deckSize: p.deck_size,
-        })
+          chatMessages: [...s.chatMessages, statusEntry],
+        }))
       } else {
         const isSelf = get().playerId === p.player_id
-        addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`, { claimMissed: true })
+        const statusEntry: ChatEntry = {
+          id: crypto.randomUUID(), kind: 'status',
+          text: isSelf ? 'You missed!' : `${playerName} missed!`, timestamp: Date.now(), claimMissed: true,
+        }
+        set((s) => ({
+          lastClaim: newLastClaim,
+          chatMessages: [...s.chatMessages, statusEntry],
+        }))
       }
       const { settings } = get()
       const clearDelay = p.correct
