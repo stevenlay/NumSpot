@@ -590,12 +590,14 @@ func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface
 	deckSize, _ := payload["deck_size"].(float64)
 	wrongMs, _ := payload["wrong_claim_penalty_ms"].(float64)
 	correctMs, _ := payload["correct_claim_lock_ms"].(float64)
+	rounds, _ := payload["rounds"].(float64)
 
 	clamped := room.UpdateSettings(game.RoomSettings{
 		MaxPlayers:          int(maxPlayers),
 		DeckSize:            int(deckSize),
 		WrongClaimPenaltyMs: int(wrongMs),
 		CorrectClaimLockMs:  int(correctMs),
+		Rounds:              int(rounds),
 	})
 
 	h.broadcast(c.RoomCode, OutboundMessage{
