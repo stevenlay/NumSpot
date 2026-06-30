@@ -30,6 +30,7 @@ export default function Game() {
   const gameOverToast = useGameStore((s) => s.gameOverToast)
   const currentRound = useGameStore((s) => s.currentRound)
   const totalRounds = useGameStore((s) => s.totalRounds)
+  const claimingCard = useGameStore((s) => s.claimingCard)
   const disconnected = useGameStore((s) => s.disconnected)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
@@ -254,10 +255,7 @@ export default function Game() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <div
-                      key={`${myCard.join(',')}${lastClaim?.correct && lastClaim.playerId === playerId ? '-s' : ''}`}
-                      className={cn(lastClaim?.correct && lastClaim.playerId === playerId && 'animate-card-slide-to-center')}
-                    >
+                    <div className="relative">
                       <NumberCard
                         numbers={myCard}
                         label="Your Card — tap the matching number!"
@@ -266,6 +264,20 @@ export default function Game() {
                         highlightNumber={answerNum ?? highlightNum}
                         className="w-full"
                       />
+                      {claimingCard && lastClaim?.correct && lastClaim.playerId === playerId && (
+                        <div
+                          key={`${claimingCard.join(',')}-claiming`}
+                          className="absolute inset-0 animate-card-slide-to-center pointer-events-none"
+                        >
+                          <NumberCard
+                            numbers={claimingCard}
+                            label="Your Card — tap the matching number!"
+                            clickable={false}
+                            highlightNumber={highlightNum}
+                            className="w-full"
+                          />
+                        </div>
+                      )}
                     </div>
                     {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
                       <div className="flex flex-col gap-1.5">

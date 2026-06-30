@@ -60,6 +60,7 @@ function makeStore(overrides = {}) {
     error: null,
     resetError: mockResetError,
     gameOverToast: null,
+    currentRound: 0,
     ...overrides,
   }
 }
@@ -200,14 +201,14 @@ describe('Lobby', () => {
     it('shows winner name when game just ended', () => {
       const winner = makePlayer('p2', 'Bob', 5)
       const players = [makePlayer('p1', 'Alice', 3), winner]
-      setup({ gameOverToast: { winner, players }, playerId: 'p1' })
+      setup({ gameOverToast: { winner, players, currentRound: 1, totalRounds: 1 }, playerId: 'p1' })
       expect(screen.getByText('Bob wins!')).toBeInTheDocument()
     })
 
     it('shows "You won!" when current player is the winner', () => {
       const winner = makePlayer('p1', 'Alice', 5)
       const players = [winner, makePlayer('p2', 'Bob', 2)]
-      setup({ gameOverToast: { winner, players }, playerId: 'p1' })
+      setup({ gameOverToast: { winner, players, currentRound: 1, totalRounds: 1 }, playerId: 'p1' })
       expect(screen.getByText('You won!')).toBeInTheDocument()
     })
 
@@ -217,7 +218,7 @@ describe('Lobby', () => {
         makePlayer('p2', 'Bob', 3),
         makePlayer('p3', 'Carol', 7),
       ]
-      setup({ gameOverToast: { winner: players[2], players }, playerId: 'p99' })
+      setup({ gameOverToast: { winner: players[2], players, currentRound: 1, totalRounds: 1 }, playerId: 'p99' })
       const items = screen.getAllByText(/pts$/)
       // Carol(7), Alice(5), Bob(3)
       expect(items[0].textContent).toBe('7 pts')

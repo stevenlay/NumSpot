@@ -10,11 +10,13 @@ vi.mock('../store/gameStore')
 
 const mockSendChat = vi.fn()
 
-function makeStore(overrides: Partial<{ chatMessages: ChatEntry[]; sendChat: typeof mockSendChat; playerId: string }> = {}) {
+function makeStore(overrides: Partial<{ chatMessages: ChatEntry[]; sendChat: typeof mockSendChat; playerId: string; chatError: string | null }> = {}) {
   return {
     chatMessages: [] as ChatEntry[],
     sendChat: mockSendChat,
     playerId: 'p1',
+    players: [],
+    chatError: null,
     ...overrides,
   }
 }

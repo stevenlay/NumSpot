@@ -163,8 +163,13 @@ export default function Lobby() {
           const sorted = [...gameOverToast.players].sort((a, b) => scoreOf(b) - scoreOf(a))
           const top3 = sorted.slice(0, 3)
           const selfRank = sorted.findIndex(p => p.id === playerId)
+          const isMultiRound = gameOverToast.totalRounds > 1
           const heading = isFinalRound
-            ? (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won the session!' : `${gameOverToast.winner.name} wins the session!`) : 'Session over!')
+            ? (gameOverToast.winner
+                ? (gameOverToast.winner.id === playerId
+                    ? (isMultiRound ? 'You won the session!' : 'You won!')
+                    : (isMultiRound ? `${gameOverToast.winner.name} wins the session!` : `${gameOverToast.winner.name} wins!`))
+                : (isMultiRound ? 'Session over!' : 'Game over!'))
             : (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won this round!' : `${gameOverToast.winner.name} wins this round!`) : 'Round over!')
           return (
             <div className="w-full border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">

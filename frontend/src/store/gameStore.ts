@@ -44,6 +44,7 @@ export interface GameStore {
   deckSize: number
   countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
+  claimingCard: number[] | null
   roundStartedAt: number | null
   currentRound: number
   totalRounds: number
@@ -168,11 +169,17 @@ function handleMessage(
       if (p.correct) {
         const claimElapsedMs = Date.now() - (get().roundStartedAt ?? Date.now())
         addStatusEntry(set, `${playerName} got it! +1`, { claimElapsedMs })
-        // Update scores immediately, but keep existing cards until cooldown ends
-        if (p.players) {
-          const scoreMap = new Map(p.players.map(pl => [pl.id, pl.score]))
-          set((s) => ({ players: s.players.map(pl => ({ ...pl, score: scoreMap.get(pl.id) ?? pl.score })) }))
-        }
+        // Snapshot the claiming player's current card so we can animate it sliding away
+        const { playerId } = get()
+        const claimingCard = p.player_id === playerId
+          ? (get().players.find((pl) => pl.id === playerId)?.card ?? null)
+          : null
+        // Immediately apply full player update (new card + scores) and deck size
+        set({
+          claimingCard,
+          ...(p.players ? { players: p.players } : {}),
+          deckSize: p.deck_size,
+        })
       } else {
         const isSelf = get().playerId === p.player_id
         addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`, { claimMissed: true })
@@ -183,9 +190,9 @@ function handleMessage(
         : settings.wrong_claim_penalty_ms
       setTimeout(() => set({
         lastClaim: null,
+        claimingCard: null,
         centerCard: p.center_card ?? get().centerCard,
-        players: p.players ?? get().players,
-        deckSize: p.correct ? p.deck_size : get().deckSize,
+        ...(!p.correct ? { players: p.players ?? get().players } : {}),
         ...(p.correct ? { roundStartedAt: Date.now() } : {}),
       }), clearDelay)
       break
@@ -218,6 +225,7 @@ function handleMessage(
         centerCard: [],
         deckSize: 0,
         lastClaim: null,
+        claimingCard: null,
         roundStartedAt: null,
         countdown: null,
         currentRound: p.current_round,
@@ -319,6 +327,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   deckSize: 0,
   countdown: null,
   lastClaim: null,
+  claimingCard: null,
   roundStartedAt: null,
   currentRound: 0,
   totalRounds: 1,
@@ -440,6 +449,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       deckSize: 0,
       countdown: null,
       lastClaim: null,
+      claimingCard: null,
       roundStartedAt: null,
       currentRound: 0,
       totalRounds: 1,
