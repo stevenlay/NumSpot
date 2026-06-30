@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
+  rounds: 1,
 }
 
 const WRONG_CLAIM_PRESETS = [
@@ -155,49 +156,55 @@ export default function Lobby() {
         )}
 
         {/* Game over results */}
-        {gameOverToast && (
-          <div className="w-full border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">
-            <div className="flex items-center justify-center gap-2 text-center">
-              <span className="text-2xl">🏆</span>
-              <span className="text-xl font-extrabold text-foreground">
-                {gameOverToast.winner
-                  ? gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`
-                  : 'Game over!'}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              {(() => {
-                const sorted = [...gameOverToast.players].sort((a, b) => b.score - a.score)
-                const top3 = sorted.slice(0, 3)
-                const selfRank = sorted.findIndex(p => p.id === playerId)
-                return (
-                  <>
-                    {top3.map((p, i) => (
-                      <div key={p.id} className={cn(
-                        'flex justify-between items-center px-4 py-1.5 rounded-lg font-semibold',
-                        i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
-                        i === 1 && 'bg-slate-100 text-slate-700 text-sm',
-                        i === 2 && 'bg-orange-100 text-orange-800 text-sm',
-                      )}>
-                        <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
-                        <span>{p.score} pts</span>
+        {gameOverToast && (() => {
+          const isFinalRound = gameOverToast.currentRound >= gameOverToast.totalRounds
+          const scoreOf = (p: { score: number; session_score: number }) => isFinalRound ? p.session_score + p.score : p.score
+          const sorted = [...gameOverToast.players].sort((a, b) => scoreOf(b) - scoreOf(a))
+          const top3 = sorted.slice(0, 3)
+          const selfRank = sorted.findIndex(p => p.id === playerId)
+          const heading = isFinalRound
+            ? (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won the session!' : `${gameOverToast.winner.name} wins the session!`) : 'Session over!')
+            : (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won this round!' : `${gameOverToast.winner.name} wins this round!`) : 'Round over!')
+          return (
+            <div className="w-full border border-border bg-card shadow-md px-8 py-6 flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2 text-center">
+                <span className="text-2xl">{isFinalRound ? '🏆' : '✓'}</span>
+                <div className="flex flex-col items-center">
+                  {gameOverToast.totalRounds > 1 && (
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {isFinalRound ? `All ${gameOverToast.totalRounds} rounds complete` : `Round ${gameOverToast.currentRound} of ${gameOverToast.totalRounds}`}
+                    </span>
+                  )}
+                  <span className="text-xl font-extrabold text-foreground">{heading}</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <>
+                  {top3.map((p, i) => (
+                    <div key={p.id} className={cn(
+                      'flex justify-between items-center px-4 py-1.5 rounded-lg font-semibold',
+                      i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
+                      i === 1 && 'bg-slate-100 text-slate-700 text-sm',
+                      i === 2 && 'bg-orange-100 text-orange-800 text-sm',
+                    )}>
+                      <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                      <span>{scoreOf(p)} pts</span>
+                    </div>
+                  ))}
+                  {selfRank >= 3 && (
+                    <>
+                      <div className="text-center text-xs text-muted-foreground opacity-50 leading-none">···</div>
+                      <div className="flex justify-between items-center text-sm px-4 py-1.5 rounded-lg text-muted-foreground">
+                        <span>{selfRank + 1}. {sorted[selfRank].name} (you)</span>
+                        <span>{scoreOf(sorted[selfRank])} pts</span>
                       </div>
-                    ))}
-                    {selfRank >= 3 && (
-                      <>
-                        <div className="text-center text-xs text-muted-foreground opacity-50 leading-none">···</div>
-                        <div className="flex justify-between items-center text-sm px-4 py-1.5 rounded-lg text-muted-foreground">
-                          <span>{selfRank + 1}. {sorted[selfRank].name} (you)</span>
-                          <span>{sorted[selfRank].score} pts</span>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )
-              })()}
+                    </>
+                  )}
+                </>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Mobile: room code + players */}
         <div className="md:hidden w-full flex flex-col gap-4">
@@ -382,6 +389,34 @@ export default function Lobby() {
                     )}
                   >
                     {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Rounds */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Rounds</span>
+              <span className={cn('text-sm tabular-nums', settings.rounds !== DEFAULT_SETTINGS.rounds ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {settings.rounds}
+              </span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {[1, 3, 5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => updateSettings({ ...settings, rounds: n })}
+                    className={cn(
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
+                      settings.rounds === n
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {n}
                   </button>
                 ))}
               </div>

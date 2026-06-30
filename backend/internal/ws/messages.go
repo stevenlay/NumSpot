@@ -76,6 +76,7 @@ type RoomJoinedPayload struct {
 	IsSpectator bool             `json:"is_spectator"`
 	Players     []*game.Player   `json:"players"`
 	Settings    game.RoomSettings `json:"settings"`
+	CurrentRound int             `json:"current_round"`
 	// Populated for spectators joining an active game
 	CenterCard []int           `json:"center_card,omitempty"`
 	DeckSize   int             `json:"deck_size,omitempty"`
@@ -95,9 +96,11 @@ type PlayerLeftPayload struct {
 }
 
 type GameStartedPayload struct {
-	CenterCard []int          `json:"center_card"`
-	Players    []*game.Player `json:"players"`
-	DeckSize   int            `json:"deck_size"`
+	CenterCard   []int          `json:"center_card"`
+	Players      []*game.Player `json:"players"`
+	DeckSize     int            `json:"deck_size"`
+	CurrentRound int            `json:"current_round"`
+	TotalRounds  int            `json:"total_rounds"`
 }
 
 type ClaimResultPayload struct {
@@ -110,13 +113,17 @@ type ClaimResultPayload struct {
 }
 
 type GameOverPayload struct {
-	Players  []*game.Player `json:"players"`
-	WinnerID string         `json:"winner_id"`
+	Players      []*game.Player `json:"players"`
+	WinnerID     string         `json:"winner_id"`
+	CurrentRound int            `json:"current_round"`
+	TotalRounds  int            `json:"total_rounds"`
 }
 
 type GameResetPayload struct {
-	Players []*game.Player `json:"players"`
-	HostID  string         `json:"host_id"`
+	Players      []*game.Player `json:"players"`
+	HostID       string         `json:"host_id"`
+	CurrentRound int            `json:"current_round"`
+	TotalRounds  int            `json:"total_rounds"`
 }
 
 type SpectatorJoinedPayload struct {

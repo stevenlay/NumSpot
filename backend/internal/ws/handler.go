@@ -189,11 +189,12 @@ func (h *Handler) handleCreateRoom(c *WSClient, payload map[string]interface{}) 
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
-			RoomCode: room.Code,
-			PlayerID: c.ID,
-			IsHost:   true,
-			Players:  room.PlayerList(),
-			Settings: room.Settings,
+			RoomCode:     room.Code,
+			PlayerID:     c.ID,
+			IsHost:       true,
+			Players:      room.PlayerList(),
+			Settings:     room.Settings,
+			CurrentRound: room.CurrentRound,
 		},
 	})
 }
@@ -252,17 +253,19 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 					})
 					room.RLock()
 					settings := room.Settings
+					currentRound := room.CurrentRound
 					room.RUnlock()
 					h.sendTo(c, OutboundMessage{
 						Type: MsgRoomJoined,
 						Payload: RoomJoinedPayload{
-							RoomCode:   code,
-							PlayerID:   c.ID,
-							IsHost:     false,
-							Players:    room.PlayerList(),
-							Settings:   settings,
-							CenterCard: centerCard,
-							DeckSize:   deckSize,
+							RoomCode:     code,
+							PlayerID:     c.ID,
+							IsHost:       false,
+							Players:      room.PlayerList(),
+							Settings:     settings,
+							CenterCard:   centerCard,
+							DeckSize:     deckSize,
+							CurrentRound: currentRound,
 						},
 					})
 					return
@@ -291,19 +294,21 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 
 		room.RLock()
 		spectatorSettings := room.Settings
+		spectatorCurrentRound := room.CurrentRound
 		room.RUnlock()
 		h.sendTo(c, OutboundMessage{
 			Type: MsgRoomJoined,
 			Payload: RoomJoinedPayload{
-				RoomCode:    code,
-				PlayerID:    c.ID,
-				IsHost:      false,
-				IsSpectator: true,
-				Players:     room.PlayerList(),
-				Settings:    spectatorSettings,
-				CenterCard:  centerCard,
-				DeckSize:    deckSize,
-				Spectators:  spectators,
+				RoomCode:     code,
+				PlayerID:     c.ID,
+				IsHost:       false,
+				IsSpectator:  true,
+				Players:      room.PlayerList(),
+				Settings:     spectatorSettings,
+				CenterCard:   centerCard,
+				DeckSize:     deckSize,
+				Spectators:   spectators,
+				CurrentRound: spectatorCurrentRound,
 			},
 		})
 		return
@@ -332,6 +337,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 		lobbySettings := room.Settings
 		lastWinnerID := room.LastWinnerID
 		lastGamePlayers := room.LastGamePlayers
+		lobbyCurrentRound := room.CurrentRound
 		room.RUnlock()
 		h.sendTo(c, OutboundMessage{
 			Type: MsgRoomJoined,
@@ -345,6 +351,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 				Spectators:      spectators,
 				LastWinnerID:    lastWinnerID,
 				LastGamePlayers: lastGamePlayers,
+				CurrentRound:    lobbyCurrentRound,
 			},
 		})
 		return
@@ -367,11 +374,10 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 	room.RLock()
 	lastWinnerID := room.LastWinnerID
 	lastGamePlayers := room.LastGamePlayers
+	joinerSettings := room.Settings
+	joinerCurrentRound := room.CurrentRound
 	room.RUnlock()
 
-	room.RLock()
-	joinerSettings := room.Settings
-	room.RUnlock()
 	h.sendTo(c, OutboundMessage{
 		Type: MsgRoomJoined,
 		Payload: RoomJoinedPayload{
@@ -382,6 +388,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 			Settings:        joinerSettings,
 			LastWinnerID:    lastWinnerID,
 			LastGamePlayers: lastGamePlayers,
+			CurrentRound:    joinerCurrentRound,
 		},
 	})
 }
@@ -425,6 +432,8 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 	centerCard := make([]int, len(room.CenterCard))
 	copy(centerCard, room.CenterCard)
 	deckSize := room.TotalCardsLeft()
+	currentRound := room.CurrentRound
+	totalRounds := room.Settings.Rounds
 	room.RUnlock()
 
 	players := room.PlayerList()
@@ -432,9 +441,11 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 	h.broadcast(c.RoomCode, OutboundMessage{
 		Type: MsgGameStarted,
 		Payload: GameStartedPayload{
-			CenterCard: centerCard,
-			Players:    players,
-			DeckSize:   deckSize,
+			CenterCard:   centerCard,
+			Players:      players,
+			DeckSize:     deckSize,
+			CurrentRound: currentRound,
+			TotalRounds:  totalRounds,
 		},
 	})
 }
@@ -476,15 +487,27 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 	})
 
 	if result.GameOver {
+		room.RLock()
+		currentRound := room.CurrentRound
+		totalRounds := room.Settings.Rounds
+		isFinal := currentRound >= totalRounds
+		winnerID := result.WinnerID
+		if isFinal {
+			winnerID = room.SessionWinnerID()
+		}
+		room.RUnlock()
+
 		h.broadcast(c.RoomCode, OutboundMessage{
 			Type: MsgGameOver,
 			Payload: GameOverPayload{
-				Players:  result.Players,
-				WinnerID: result.WinnerID,
+				Players:      result.Players,
+				WinnerID:     winnerID,
+				CurrentRound: currentRound,
+				TotalRounds:  totalRounds,
 			},
 		})
 		// Store result now so new joiners see the scoreboard while host decides to restart.
-		room.SetLastGameResult(result.WinnerID, result.Players)
+		room.SetLastGameResult(winnerID, result.Players)
 	}
 }
 
@@ -635,6 +658,7 @@ func (h *Handler) handleRestartGame(c *WSClient) {
 	room.RLock()
 	isHost := room.HostID == c.PlayerID
 	hostID := room.HostID
+	sessionComplete := room.CurrentRound >= room.Settings.Rounds
 	room.RUnlock()
 
 	if !isHost {
@@ -642,16 +666,30 @@ func (h *Handler) handleRestartGame(c *WSClient) {
 		return
 	}
 
-	if err := room.ResetToLobby(); err != nil {
-		h.sendError(c, err.Error())
-		return
+	if sessionComplete {
+		if err := room.ResetSession(); err != nil {
+			h.sendError(c, err.Error())
+			return
+		}
+	} else {
+		if err := room.ResetToLobby(); err != nil {
+			h.sendError(c, err.Error())
+			return
+		}
 	}
+
+	room.RLock()
+	currentRound := room.CurrentRound
+	totalRounds := room.Settings.Rounds
+	room.RUnlock()
 
 	h.broadcast(c.RoomCode, OutboundMessage{
 		Type: MsgGameReset,
 		Payload: GameResetPayload{
-			Players: room.PlayerList(),
-			HostID:  hostID,
+			Players:      room.PlayerList(),
+			HostID:       hostID,
+			CurrentRound: currentRound,
+			TotalRounds:  totalRounds,
 		},
 	})
 }

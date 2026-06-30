@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore'
 import { useDevStore } from '../store/devStore'
 import NumberCard from '../components/game/NumberCard'
 import Scoreboard from '../components/game/Scoreboard'
+import ScoreProgressBar from '../components/game/ScoreProgressBar'
 import GameShell from '../components/game/GameShell'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -27,6 +28,8 @@ export default function Game() {
   const isSpectator = useGameStore((s) => s.isSpectator)
   const settings = useGameStore((s) => s.settings)
   const gameOverToast = useGameStore((s) => s.gameOverToast)
+  const currentRound = useGameStore((s) => s.currentRound)
+  const totalRounds = useGameStore((s) => s.totalRounds)
   const disconnected = useGameStore((s) => s.disconnected)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
@@ -98,6 +101,9 @@ export default function Game() {
       )}
 
       <GameShell
+        centerFooter={phase !== 'finished' && playerId && (
+          <ScoreProgressBar players={players} currentPlayerId={playerId} />
+        )}
         banner={disconnected && (
           <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
             <AlertDescription className="flex items-center justify-between max-w-md mx-auto w-full">
@@ -148,6 +154,12 @@ export default function Game() {
               <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
                 {isSpectator ? 'cards left' : 'cards left in your deck'}
               </span>
+              {totalRounds > 1 && (
+                <>
+                  <span className="text-muted-foreground/40 text-xs">·</span>
+                  <span className="text-xs sm:text-sm font-semibold text-muted-foreground">Round {currentRound} of {totalRounds}</span>
+                </>
+              )}
             </div>
             <div className="md:hidden border-b border-border px-3 py-1.5 shrink-0 overflow-x-auto">
               <Scoreboard players={players} currentPlayerId={playerId ?? ''} layout="horizontal" />
@@ -157,40 +169,56 @@ export default function Game() {
       >
         {phase === 'finished' && gameOverToast ? (
           <main className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto min-w-0">
-            <div className="w-full max-w-md flex flex-col gap-5">
-              <div className="text-center flex flex-col items-center gap-1">
-                <span className="text-5xl">🏆</span>
-                <h2 className="text-2xl font-extrabold mt-2">
-                  {gameOverToast.winner
-                    ? gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`
-                    : 'Game over!'}
-                </h2>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {[...gameOverToast.players]
-                  .sort((a, b) => b.score - a.score)
-                  .map((p, i) => (
-                    <div
-                      key={p.id}
-                      className={cn(
-                        'flex justify-between items-center px-4 py-2 rounded-lg font-semibold',
-                        i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
-                        i === 1 && 'bg-slate-100 text-slate-700 text-sm',
-                        i === 2 && 'bg-orange-100 text-orange-800 text-sm',
-                        i >= 3 && 'text-muted-foreground text-sm',
-                      )}
-                    >
-                      <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
-                      <span>{p.score} pt{p.score !== 1 ? 's' : ''}</span>
-                    </div>
-                  ))}
-              </div>
-              {isHost ? (
-                <Button size="lg" className="w-full" onClick={restartGame}>Play Again</Button>
-              ) : (
-                <p className="text-center text-sm text-muted-foreground">Waiting for the host to start a new game…</p>
-              )}
-            </div>
+            {(() => {
+              const isFinalRound = gameOverToast.currentRound >= gameOverToast.totalRounds
+              const scoreOf = (p: { score: number; session_score: number }) => isFinalRound ? p.session_score + p.score : p.score
+              const sorted = [...gameOverToast.players].sort((a, b) => scoreOf(b) - scoreOf(a))
+              const heading = isFinalRound
+                ? (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won!' : `${gameOverToast.winner.name} wins!`) : 'Game over!')
+                : (gameOverToast.winner ? (gameOverToast.winner.id === playerId ? 'You won this round!' : `${gameOverToast.winner.name} wins this round!`) : 'Round over!')
+              return (
+                <div className="w-full max-w-md flex flex-col gap-5">
+                  <div className="text-center flex flex-col items-center gap-1">
+                    <span className="text-5xl">{isFinalRound ? '🏆' : '✓'}</span>
+                    {gameOverToast.totalRounds > 1 && (
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2">
+                        {isFinalRound ? `All ${gameOverToast.totalRounds} rounds complete` : `Round ${gameOverToast.currentRound} of ${gameOverToast.totalRounds}`}
+                      </span>
+                    )}
+                    <h2 className="text-2xl font-extrabold mt-1">{heading}</h2>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {sorted.map((p, i) => {
+                      const pts = scoreOf(p)
+                      return (
+                        <div
+                          key={p.id}
+                          className={cn(
+                            'flex justify-between items-center px-4 py-2 rounded-lg font-semibold',
+                            i === 0 && 'bg-yellow-100 text-yellow-900 text-base',
+                            i === 1 && 'bg-slate-100 text-slate-700 text-sm',
+                            i === 2 && 'bg-orange-100 text-orange-800 text-sm',
+                            i >= 3 && 'text-muted-foreground text-sm',
+                          )}
+                        >
+                          <span>{i + 1}. {p.name}{p.id === playerId ? ' (you)' : ''}</span>
+                          <span>{pts} pt{pts !== 1 ? 's' : ''}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {isHost ? (
+                    <Button size="lg" className="w-full" onClick={restartGame}>
+                      {isFinalRound ? 'New Game' : 'Next Round'}
+                    </Button>
+                  ) : (
+                    <p className="text-center text-sm text-muted-foreground">
+                      {isFinalRound ? 'Waiting for the host to start a new game…' : 'Waiting for the host to start the next round…'}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </main>
         ) : (
           <main className="flex-1 flex flex-col items-center p-3 sm:p-6 overflow-y-auto min-w-0">

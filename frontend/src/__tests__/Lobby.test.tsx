@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
+  rounds: 1,
 }
 
 function makePlayer(id: string, name: string, score = 0): Player {

@@ -39,6 +39,7 @@ type RoomSettings struct {
 	DeckSize            int `json:"deck_size"`
 	WrongClaimPenaltyMs int `json:"wrong_claim_penalty_ms"`
 	CorrectClaimLockMs  int `json:"correct_claim_lock_ms"`
+	Rounds              int `json:"rounds"`
 }
 
 func defaultRoomSettings() RoomSettings {
@@ -47,6 +48,7 @@ func defaultRoomSettings() RoomSettings {
 		DeckSize:            57,
 		WrongClaimPenaltyMs: 1500,
 		CorrectClaimLockMs:  2000,
+		Rounds:              1,
 	}
 }
 
@@ -81,6 +83,7 @@ type Room struct {
 	correctClaimDelay time.Duration
 	LastWinnerID     string
 	LastGamePlayers  []*Player
+	CurrentRound     int
 	mu               sync.RWMutex
 }
 
@@ -178,6 +181,10 @@ func (r *Room) UpdateSettings(s RoomSettings) RoomSettings {
 	}
 	if s.CorrectClaimLockMs > 10000 {
 		s.CorrectClaimLockMs = 10000
+	}
+	validRounds := map[int]bool{1: true, 3: true, 5: true}
+	if !validRounds[s.Rounds] {
+		s.Rounds = 1
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -346,6 +353,7 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 
 	r.Deck = nil
 	r.State = StatePlaying
+	r.CurrentRound++
 	r.wrongClaimDelay = time.Duration(r.Settings.WrongClaimPenaltyMs) * time.Millisecond
 	r.correctClaimDelay = time.Duration(r.Settings.CorrectClaimLockMs) * time.Millisecond
 	if !opts.SkipCountdown {
@@ -457,6 +465,47 @@ func (r *Room) ResetToLobby() error {
 
 	r.resetLocked()
 	return nil
+}
+
+// ResetSession does a full reset: clears session scores, resets CurrentRound to 0, and returns to lobby.
+// Used when a multi-round session completes and the host starts fresh.
+func (r *Room) ResetSession() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.State != StateFinished {
+		return errors.New("game is not finished")
+	}
+
+	for _, p := range r.Players {
+		p.SessionScore = 0
+		p.Score = 0
+		p.Card = nil
+		p.deck = nil
+		p.CardsLeft = 0
+	}
+	r.CurrentRound = 0
+	r.Deck = nil
+	r.CenterCard = nil
+	r.claimLockedUntil = time.Time{}
+	r.countdownUntil = time.Time{}
+	r.State = StateWaiting
+	return nil
+}
+
+// SessionWinnerID returns the player ID with the highest session_score+score total.
+// Caller must hold at least a read lock.
+func (r *Room) SessionWinnerID() string {
+	var winnerID string
+	maxScore := -1
+	for id, p := range r.Players {
+		total := p.SessionScore + p.Score
+		if total > maxScore {
+			maxScore = total
+			winnerID = id
+		}
+	}
+	return winnerID
 }
 
 // ForceResetToLobby resets the room regardless of current state (dev use only).

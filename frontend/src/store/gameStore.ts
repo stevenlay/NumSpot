@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
+  rounds: 1,
 }
 
 const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -44,7 +45,9 @@ export interface GameStore {
   countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
   roundStartedAt: number | null
-  gameOverToast: { winner: Player | null; players: Player[] } | null
+  currentRound: number
+  totalRounds: number
+  gameOverToast: { winner: Player | null; players: Player[]; currentRound: number; totalRounds: number } | null
   connected: boolean
   disconnected: boolean
   error: string | null
@@ -105,8 +108,10 @@ function handleMessage(
           disconnected: false,
         })
       } else {
+        const joinCurrentRound = p.current_round ?? 0
+        const joinTotalRounds = p.settings?.rounds ?? 1
         const gameOverToast = p.last_winner_id && p.last_game_players
-          ? { winner: p.last_game_players.find((pl) => pl.id === p.last_winner_id) ?? null, players: p.last_game_players }
+          ? { winner: p.last_game_players.find((pl) => pl.id === p.last_winner_id) ?? null, players: p.last_game_players, currentRound: joinCurrentRound, totalRounds: joinTotalRounds }
           : null
         set({
           phase: 'lobby',
@@ -116,6 +121,8 @@ function handleMessage(
           isSpectator: false,
           players: p.players,
           settings: p.settings ?? DEFAULT_SETTINGS,
+          currentRound: joinCurrentRound,
+          totalRounds: joinTotalRounds,
           disconnected: false,
           gameOverToast,
         })
@@ -144,9 +151,9 @@ function handleMessage(
       addStatusEntry(set, 'Game started!')
       const skipCountdown = import.meta.env.DEV && useDevStore.getState().skipCountdown
       if (skipCountdown) {
-        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: null, roundStartedAt: Date.now() })
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: null, roundStartedAt: Date.now(), currentRound: p.current_round, totalRounds: p.total_rounds })
       } else {
-        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3 })
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3, currentRound: p.current_round, totalRounds: p.total_rounds })
         setTimeout(() => set({ countdown: 2 }), 1000)
         setTimeout(() => set({ countdown: 1 }), 2000)
         setTimeout(() => set({ countdown: 0 }), 3000)
@@ -186,10 +193,12 @@ function handleMessage(
     case 'game_over': {
       const p = msg.payload as GameOverPayload
       const { playerId } = get()
+      const isFinalRound = p.current_round >= p.total_rounds
       const winner = p.players.find((pl) => pl.id === p.winner_id) ?? null
-      set({ phase: 'finished', gameOverToast: { winner, players: p.players } })
+      set({ phase: 'finished', currentRound: p.current_round, totalRounds: p.total_rounds, gameOverToast: { winner, players: p.players, currentRound: p.current_round, totalRounds: p.total_rounds } })
+      const roundLabel = p.total_rounds > 1 ? (isFinalRound ? 'Game over!' : `Round ${p.current_round} of ${p.total_rounds} over!`) : 'Game over!'
+      addStatusEntry(set, winner ? `${roundLabel} ${winner.id === playerId ? 'You win!' : `${winner.name} wins!`}` : roundLabel)
       const sorted = [...p.players].sort((a, b) => b.score - a.score)
-      addStatusEntry(set, winner ? `Game over! ${winner.id === playerId ? 'You win!' : `${winner.name} wins!`}` : 'Game over!')
       const top3 = sorted.slice(0, 3)
       top3.forEach((pl, i) => addStatusEntry(set, `${i + 1}. ${pl.name}${pl.id === playerId ? ' (you)' : ''} — ${pl.score} pt${pl.score !== 1 ? 's' : ''}`))
       const selfRank = sorted.findIndex(pl => pl.id === playerId)
@@ -211,6 +220,8 @@ function handleMessage(
         lastClaim: null,
         roundStartedAt: null,
         countdown: null,
+        currentRound: p.current_round,
+        totalRounds: p.total_rounds,
       })
       break
     }
@@ -309,6 +320,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   countdown: null,
   lastClaim: null,
   roundStartedAt: null,
+  currentRound: 0,
+  totalRounds: 1,
   gameOverToast: null,
   connected: false,
   disconnected: false,
@@ -428,6 +441,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       countdown: null,
       lastClaim: null,
       roundStartedAt: null,
+      currentRound: 0,
+      totalRounds: 1,
       gameOverToast: null,
       connected: false,
       disconnected: false,
