@@ -36,7 +36,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 <div className="flex items-center gap-2 min-w-0">
                   <span>{`${i + 1}.`}</span>
                   <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
-                  {p.muted && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
+                  {p.muted && (!isHost || isYou) && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <span className="font-bold">{p.score}</span>

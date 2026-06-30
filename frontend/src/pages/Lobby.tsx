@@ -94,7 +94,7 @@ export default function Lobby() {
                 <span className="font-medium truncate text-foreground flex-1">
                   {p.name}{p.id === playerId ? ' (you)' : ''}
                 </span>
-                {p.muted && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
+                {p.muted && !isHost && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
                 {showScores && (
                   <span className="font-bold text-xs text-primary shrink-0">{p.session_score}</span>
                 )}
@@ -226,7 +226,7 @@ export default function Lobby() {
                   <span className="font-medium text-foreground text-sm flex-1">
                     {p.name}{p.id === playerId ? ' (you)' : ''}
                   </span>
-                  {p.muted && <MicOff className="w-3.5 h-3.5 shrink-0 text-red-400" />}
+                  {p.muted && !isHost && <MicOff className="w-3.5 h-3.5 shrink-0 text-red-400" />}
                   {showScores && (
                     <span className="font-bold text-sm text-primary shrink-0">{p.session_score}</span>
                   )}
