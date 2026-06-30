@@ -12,6 +12,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPanelProps) {
   const chatMessages = useGameStore((s) => s.chatMessages)
+  const chatError = useGameStore((s) => s.chatError)
   const sendChat = useGameStore((s) => s.sendChat)
   const playerId = useGameStore((s) => s.playerId)
   const [input, setInput] = useState('')
@@ -88,7 +89,11 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
   )
 
   const inputBar = (
-    <div className="p-3 border-t border-border shrink-0 flex gap-2">
+    <div className="shrink-0 flex flex-col border-t border-border">
+      {chatError && (
+        <p className="px-3 pt-2 text-xs text-red-500">{chatError}</p>
+      )}
+    <div className="p-3 flex gap-2">
       <input
         type="text"
         value={input}
@@ -101,6 +106,7 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
       <Button size="sm" onClick={handleSend} disabled={!input.trim()}>
         Send
       </Button>
+    </div>
     </div>
   )
 

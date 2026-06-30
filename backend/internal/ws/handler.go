@@ -677,19 +677,19 @@ func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {
 	muted := room.IsMuted(c.PlayerID)
 	room.RUnlock()
 	if muted {
-		h.sendError(c, "You have been muted by the host.")
+		h.sendChatError(c, "You have been muted by the host.")
 		return
 	}
 
 	now := time.Now()
 	if !c.lastChatAt.IsZero() && now.Sub(c.lastChatAt) < chatRateLimitMs*time.Millisecond {
-		h.sendError(c, "You're sending messages too fast.")
+		h.sendChatError(c, "Slow down — you're sending messages too fast.")
 		return
 	}
 	c.lastChatAt = now
 
 	if goaway.IsProfane(text) {
-		h.sendError(c, "Your message was blocked by the chat filter.")
+		h.sendChatError(c, "Your message was blocked by the chat filter.")
 		return
 	}
 
@@ -779,6 +779,14 @@ func (h *Handler) sendTo(c *WSClient, msg interface{}) {
 		return
 	}
 	c.SendMsg(data)
+}
+
+// sendChatError sends a chat-scoped error to a single client (shown in the chat panel).
+func (h *Handler) sendChatError(c *WSClient, message string) {
+	h.sendTo(c, OutboundMessage{
+		Type:    MsgChatError,
+		Payload: ErrorPayload{Message: message},
+	})
 }
 
 // sendError sends an error message to a single client.

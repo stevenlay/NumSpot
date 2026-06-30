@@ -48,6 +48,7 @@ export interface GameStore {
   connected: boolean
   disconnected: boolean
   error: string | null
+  chatError: string | null
   chatMessages: ChatEntry[]
   _ws: WebSocket | null
 
@@ -259,6 +260,12 @@ function handleMessage(
       set({ settings: msg.payload as RoomSettings })
       break
     }
+    case 'chat_error': {
+      const p = msg.payload as { message: string }
+      set({ chatError: p.message })
+      setTimeout(() => set({ chatError: null }), 4000)
+      break
+    }
     case 'error': {
       const p = msg.payload as { message: string }
       set({ error: p.message })
@@ -302,6 +309,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   connected: false,
   disconnected: false,
   error: null,
+  chatError: null,
   chatMessages: [],
   _ws: null,
 
@@ -420,6 +428,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       connected: false,
       disconnected: false,
       error: null,
+      chatError: null,
       chatMessages: [],
       _ws: null,
     })

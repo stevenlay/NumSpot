@@ -32,6 +32,7 @@ const (
 	MsgSettingsUpdated = "settings_updated"
 	MsgJoinedAsPlayer  = "joined_as_player"
 	MsgPlayerMuted     = "player_muted"
+	MsgChatError       = "chat_error"
 )
 
 // InboundMessage is the top-level wrapper for all client messages.
