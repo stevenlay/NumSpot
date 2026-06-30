@@ -506,8 +506,37 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 				TotalRounds:  totalRounds,
 			},
 		})
-		// Store result now so new joiners see the scoreboard while host decides to restart.
 		room.SetLastGameResult(winnerID, result.Players)
+
+		if !isFinal {
+			roomCode := c.RoomCode
+			go func() {
+				time.Sleep(4 * time.Second)
+				if err := room.ResetToLobby(); err != nil {
+					return
+				}
+				if err := room.StartGame(game.StartGameOptions{}); err != nil {
+					return
+				}
+				room.RLock()
+				centerCard := make([]int, len(room.CenterCard))
+				copy(centerCard, room.CenterCard)
+				deckSize := room.TotalCardsLeft()
+				nextRound := room.CurrentRound
+				totalRounds := room.Settings.Rounds
+				room.RUnlock()
+				h.broadcast(roomCode, OutboundMessage{
+					Type: MsgGameStarted,
+					Payload: GameStartedPayload{
+						CenterCard:   centerCard,
+						Players:      room.PlayerList(),
+						DeckSize:     deckSize,
+						CurrentRound: nextRound,
+						TotalRounds:  totalRounds,
+					},
+				})
+			}()
+		}
 	}
 }
 

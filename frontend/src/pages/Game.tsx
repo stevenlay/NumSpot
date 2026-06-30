@@ -207,14 +207,14 @@ export default function Game() {
                       )
                     })}
                   </div>
-                  {isHost ? (
-                    <Button size="lg" className="w-full" onClick={restartGame}>
-                      {isFinalRound ? 'New Game' : 'Next Round'}
-                    </Button>
+                  {isFinalRound ? (
+                    isHost ? (
+                      <Button size="lg" className="w-full" onClick={restartGame}>New Game</Button>
+                    ) : (
+                      <p className="text-center text-sm text-muted-foreground">Waiting for the host to start a new game…</p>
+                    )
                   ) : (
-                    <p className="text-center text-sm text-muted-foreground">
-                      {isFinalRound ? 'Waiting for the host to start a new game…' : 'Waiting for the host to start the next round…'}
-                    </p>
+                    <p className="text-center text-sm text-muted-foreground">Next round starting soon…</p>
                   )}
                 </div>
               )

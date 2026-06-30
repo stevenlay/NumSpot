@@ -54,6 +54,7 @@ export default function Lobby() {
   const error = useGameStore((s) => s.error)
   const resetError = useGameStore((s) => s.resetError)
   const gameOverToast = useGameStore((s) => s.gameOverToast)
+  const currentRound = useGameStore((s) => s.currentRound)
   const [copied, setCopied] = useState(false)
   const [starting, setStarting] = useState(false)
 
@@ -272,8 +273,8 @@ export default function Lobby() {
           </div>
         </div>
 
-        {/* Settings */}
-        <div className="w-full border border-border bg-card p-6 flex flex-col gap-3">
+        {/* Settings — hidden once a session is underway */}
+        {currentRound === 0 && <div className="w-full border border-border bg-card p-6 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Settings</span>
             {!isHost && <span className="text-[10px] text-muted-foreground">Host only</span>}
@@ -422,7 +423,7 @@ export default function Lobby() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Start game / spectator join */}
         <div className="w-full flex flex-col items-center gap-3">
