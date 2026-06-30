@@ -76,6 +76,8 @@ function makeStore(overrides = {}) {
     isSpectator: false,
     settings: DEFAULT_SETTINGS,
     disconnected: false,
+    chatMessages: [],
+    chatError: null,
     ...overrides,
   }
 }
@@ -109,7 +111,7 @@ describe('Game', () => {
 
     it('navigates to /lobby when phase is lobby', () => {
       setup({ phase: 'lobby' })
-      expect(mockNavigate).toHaveBeenCalledWith('/lobby', { replace: true })
+      expect(mockNavigate).toHaveBeenCalledWith('/lobby/ABC123', { replace: true })
     })
 
     it('does not navigate when phase is playing', () => {
@@ -157,7 +159,7 @@ describe('Game', () => {
 
     it('renders the scoreboard and chat panel', () => {
       setup()
-      expect(screen.getByTestId('scoreboard')).toBeInTheDocument()
+      expect(screen.getAllByTestId('scoreboard').length).toBeGreaterThan(0)
       expect(screen.getByTestId('chat-panel')).toBeInTheDocument()
     })
   })

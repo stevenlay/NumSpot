@@ -91,7 +91,7 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
   const inputBar = (
     <div className="shrink-0 flex flex-col border-t border-border">
       {chatError && (
-        <p className="px-3 pt-2 text-xs text-red-500">{chatError}</p>
+        <div className="px-3 py-2 bg-red-500 text-white text-xs font-semibold text-center">{chatError}</div>
       )}
     <div className="p-3 flex gap-2">
       <input

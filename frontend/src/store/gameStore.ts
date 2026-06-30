@@ -241,10 +241,12 @@ function handleMessage(
     }
     case 'player_muted': {
       const p = msg.payload as { player_id: string; muted: boolean }
+      const isSelf = get().playerId === p.player_id
       set((s) => ({
         players: s.players.map((pl) =>
           pl.id === p.player_id ? { ...pl, muted: p.muted } : pl
         ),
+        ...(isSelf ? { chatError: p.muted ? 'You have been muted by the host.' : null } : {}),
       }))
       break
     }
@@ -262,6 +264,8 @@ function handleMessage(
     }
     case 'chat_error': {
       const p = msg.payload as { message: string }
+      const selfMuted = get().players.find((pl) => pl.id === get().playerId)?.muted
+      if (selfMuted) break
       set({ chatError: p.message })
       setTimeout(() => set({ chatError: null }), 4000)
       break
