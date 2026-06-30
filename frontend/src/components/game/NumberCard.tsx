@@ -27,7 +27,7 @@ export default function NumberCard({
       {label && (
         <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
       )}
-      <div className="relative w-full">
+      <div className="relative w-full max-w-sm">
         {showPile && (
           <>
             <div className="absolute inset-0 bg-card border border-border" style={{ transform: 'rotate(3deg) translateY(2px)' }} />
@@ -37,7 +37,7 @@ export default function NumberCard({
         <Card
           key={pileKey}
           className={cn(
-            'p-2 sm:p-4 w-full max-w-sm rounded-none relative',
+            'p-2 sm:p-4 w-full rounded-none relative',
             !clickable && 'bg-muted/40 opacity-60',
             pileKey !== undefined && 'animate-pile-land',
           )}

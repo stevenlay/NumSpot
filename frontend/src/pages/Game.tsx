@@ -203,7 +203,7 @@ export default function Game() {
                     label="Center Card"
                     highlightNumber={highlightNum}
                     clickable={false}
-                    showPile
+                    showPile={players.some((p) => p.score > 0)}
                     pileKey={centerCard.join(',')}
                     className="w-full animate-card-in"
                   />
