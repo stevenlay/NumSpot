@@ -47,7 +47,7 @@ export default function NumberCard({
                   disabled={!clickable}
                   onClick={() => clickable && onClaim?.(n)}
                   className={cn(
-                    'flex items-center justify-center rounded-none text-sm font-bold h-8 sm:h-12 w-full transition-all select-none',
+                    'flex items-center justify-center rounded-none text-sm font-bold h-8 sm:h-12 w-full transition-all select-none focus:outline-none',
                     clickable
                       ? 'cursor-pointer hover:bg-primary/10 hover:text-primary active:scale-95'
                       : 'cursor-default',

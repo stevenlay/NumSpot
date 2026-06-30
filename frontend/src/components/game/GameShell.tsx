@@ -13,11 +13,13 @@ interface GameShellProps {
   sidebarContent: React.ReactNode
   /** Banner rendered between the sidebars, above the main content. */
   centerBanner?: React.ReactNode
+  /** Footer rendered at the bottom of the center column, below main content. */
+  centerFooter?: React.ReactNode
   /** Main content area. */
   children: React.ReactNode
 }
 
-export default function GameShell({ banner, headerExtras, sidebarContent, centerBanner, children }: GameShellProps) {
+export default function GameShell({ banner, headerExtras, sidebarContent, centerBanner, centerFooter, children }: GameShellProps) {
   const roomCode = useGameStore((s) => s.roomCode)
   const goHome = useGameStore((s) => s.goHome)
   const chatMessages = useGameStore((s) => s.chatMessages)
@@ -105,6 +107,7 @@ export default function GameShell({ banner, headerExtras, sidebarContent, center
         <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {centerBanner}
           {children}
+          {centerFooter}
         </div>
 
         <ChatPanel mobileOpen={chatOpen} onMobileClose={closeChat} />
