@@ -5,6 +5,7 @@ export interface Player {
   session_score: number
   cards_left: number
   card: number[]
+  muted?: boolean
 }
 
 export interface Spectator {

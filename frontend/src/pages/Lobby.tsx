@@ -4,7 +4,7 @@ import { useGameStore } from '../store/gameStore'
 import type { RoomSettings } from '../types/game'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, MicOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GameShell from '../components/game/GameShell'
 
@@ -47,6 +47,7 @@ export default function Lobby() {
   const startGame = useGameStore((s) => s.startGame)
   const updateSettings = useGameStore((s) => s.updateSettings)
   const joinAsPlayer = useGameStore((s) => s.joinAsPlayer)
+  const mutePlayer = useGameStore((s) => s.mutePlayer)
   const goHome = useGameStore((s) => s.goHome)
   const disconnected = useGameStore((s) => s.disconnected)
   const error = useGameStore((s) => s.error)
@@ -93,8 +94,21 @@ export default function Lobby() {
                 <span className="font-medium truncate text-foreground flex-1">
                   {p.name}{p.id === playerId ? ' (you)' : ''}
                 </span>
+                {p.muted && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
                 {showScores && (
                   <span className="font-bold text-xs text-primary shrink-0">{p.session_score}</span>
+                )}
+                {isHost && p.id !== playerId && (
+                  <button
+                    onClick={() => mutePlayer(p.id)}
+                    title={p.muted ? 'Unmute' : 'Mute'}
+                    className={cn(
+                      'p-0.5 rounded transition-colors',
+                      p.muted ? 'text-red-500 hover:text-red-700' : 'text-muted-foreground/40 hover:text-muted-foreground'
+                    )}
+                  >
+                    <MicOff className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
             ))
@@ -212,8 +226,21 @@ export default function Lobby() {
                   <span className="font-medium text-foreground text-sm flex-1">
                     {p.name}{p.id === playerId ? ' (you)' : ''}
                   </span>
+                  {p.muted && <MicOff className="w-3.5 h-3.5 shrink-0 text-red-400" />}
                   {showScores && (
                     <span className="font-bold text-sm text-primary shrink-0">{p.session_score}</span>
+                  )}
+                  {isHost && p.id !== playerId && (
+                    <button
+                      onClick={() => mutePlayer(p.id)}
+                      title={p.muted ? 'Unmute' : 'Mute'}
+                      className={cn(
+                        'p-1 rounded transition-colors',
+                        p.muted ? 'text-red-500 hover:text-red-700' : 'text-muted-foreground/40 hover:text-muted-foreground'
+                      )}
+                    >
+                      <MicOff className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
               ))

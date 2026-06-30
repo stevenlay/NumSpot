@@ -24,6 +24,7 @@ type WSClient struct {
 	Send        chan []byte
 	conn        *websocket.Conn
 	handler     *Handler
+	lastChatAt  time.Time
 }
 
 // GetID implements game.Client.

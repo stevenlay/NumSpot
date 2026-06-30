@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	goaway "github.com/TwiN/go-away"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -159,6 +160,8 @@ func (h *Handler) handleMessage(c *WSClient, raw []byte) {
 		h.handleUpdateSettings(c, msg.Payload)
 	case MsgJoinAsPlayer:
 		h.handleJoinAsPlayer(c)
+	case MsgMutePlayer:
+		h.handleMutePlayer(c, msg.Payload)
 	default:
 		h.sendError(c, "unknown message type")
 	}
@@ -653,6 +656,8 @@ func (h *Handler) handleRestartGame(c *WSClient) {
 	})
 }
 
+const chatRateLimitMs = 500 // minimum ms between messages per client
+
 func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {
 	if c.RoomCode == "" {
 		return
@@ -662,6 +667,32 @@ func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {
 	if text == "" || len(text) > 200 {
 		return
 	}
+
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		return
+	}
+
+	room.RLock()
+	muted := room.IsMuted(c.PlayerID)
+	room.RUnlock()
+	if muted {
+		h.sendError(c, "You have been muted by the host.")
+		return
+	}
+
+	now := time.Now()
+	if !c.lastChatAt.IsZero() && now.Sub(c.lastChatAt) < chatRateLimitMs*time.Millisecond {
+		h.sendError(c, "You're sending messages too fast.")
+		return
+	}
+	c.lastChatAt = now
+
+	if goaway.IsProfane(text) {
+		h.sendError(c, "Your message was blocked by the chat filter.")
+		return
+	}
+
 	h.broadcast(c.RoomCode, OutboundMessage{
 		Type: MsgChatMessage,
 		Payload: ChatMessagePayload{
@@ -670,6 +701,38 @@ func (h *Handler) handleChat(c *WSClient, payload map[string]interface{}) {
 			SenderIsSpectator: c.IsSpectator,
 			Text:              text,
 			Timestamp:         time.Now().UnixMilli(),
+		},
+	})
+}
+
+func (h *Handler) handleMutePlayer(c *WSClient, payload map[string]interface{}) {
+	if c.RoomCode == "" {
+		return
+	}
+	room, ok := h.manager.GetRoom(c.RoomCode)
+	if !ok {
+		return
+	}
+
+	room.Lock()
+	if room.HostID != c.PlayerID {
+		room.Unlock()
+		h.sendError(c, "Only the host can mute players.")
+		return
+	}
+	targetID, _ := payload["player_id"].(string)
+	if _, exists := room.Players[targetID]; !exists {
+		room.Unlock()
+		return
+	}
+	muted := room.ToggleMute(targetID)
+	room.Unlock()
+
+	h.broadcast(c.RoomCode, OutboundMessage{
+		Type: MsgPlayerMuted,
+		Payload: PlayerMutedPayload{
+			PlayerID: targetID,
+			Muted:    muted,
 		},
 	})
 }

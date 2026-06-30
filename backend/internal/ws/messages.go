@@ -4,15 +4,16 @@ import "github.com/numspot/server/internal/game"
 
 // Inbound message types (client → server)
 const (
-	MsgCreateRoom    = "create_room"
-	MsgJoinRoom      = "join_room"
-	MsgStartGame     = "start_game"
-	MsgClaim         = "claim"
-	MsgChatSend      = "chat_send"
-	MsgRestartGame   = "restart_game"
-	MsgDevReset      = "dev_reset"
+	MsgCreateRoom     = "create_room"
+	MsgJoinRoom       = "join_room"
+	MsgStartGame      = "start_game"
+	MsgClaim          = "claim"
+	MsgChatSend       = "chat_send"
+	MsgRestartGame    = "restart_game"
+	MsgDevReset       = "dev_reset"
 	MsgUpdateSettings = "update_settings"
 	MsgJoinAsPlayer   = "join_as_player"
+	MsgMutePlayer     = "mute_player"
 )
 
 // Outbound message types (server → client)
@@ -30,6 +31,7 @@ const (
 	MsgError           = "error"
 	MsgSettingsUpdated = "settings_updated"
 	MsgJoinedAsPlayer  = "joined_as_player"
+	MsgPlayerMuted     = "player_muted"
 )
 
 // InboundMessage is the top-level wrapper for all client messages.
@@ -133,9 +135,14 @@ type ErrorPayload struct {
 }
 
 type ChatMessagePayload struct {
-	SenderID      string `json:"sender_id"`
-	SenderName    string `json:"sender_name"`
-	SenderIsSpectator bool `json:"sender_is_spectator,omitempty"`
-	Text          string `json:"text"`
-	Timestamp     int64  `json:"timestamp"` // Unix milliseconds
+	SenderID          string `json:"sender_id"`
+	SenderName        string `json:"sender_name"`
+	SenderIsSpectator bool   `json:"sender_is_spectator,omitempty"`
+	Text              string `json:"text"`
+	Timestamp         int64  `json:"timestamp"` // Unix milliseconds
+}
+
+type PlayerMutedPayload struct {
+	PlayerID string `json:"player_id"`
+	Muted    bool   `json:"muted"`
 }

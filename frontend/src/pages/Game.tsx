@@ -22,6 +22,7 @@ export default function Game() {
   const claim = useGameStore((s) => s.claim)
   const restartGame = useGameStore((s) => s.restartGame)
   const goHome = useGameStore((s) => s.goHome)
+  const mutePlayer = useGameStore((s) => s.mutePlayer)
   const isHost = useGameStore((s) => s.isHost)
   const isSpectator = useGameStore((s) => s.isSpectator)
   const settings = useGameStore((s) => s.settings)
@@ -117,7 +118,7 @@ export default function Game() {
         }
         sidebarContent={
           <>
-            <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" />
+            <Scoreboard players={players} currentPlayerId={playerId} layout="vertical" className="w-full" isHost={isHost} onMute={mutePlayer} />
             {spectators.length > 0 && (
               <div className="flex flex-col gap-1.5 mt-4">
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spectating</h2>

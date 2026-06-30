@@ -57,6 +57,7 @@ export interface GameStore {
   restartGame: () => void
   claim: (symbol: number) => void
   sendChat: (text: string) => void
+  mutePlayer: (playerId: string) => void
   updateSettings: (settings: RoomSettings) => void
   joinAsPlayer: () => void
   resetError: () => void
@@ -237,6 +238,15 @@ function handleMessage(
       set((s) => ({ chatMessages: [...s.chatMessages, entry] }))
       break
     }
+    case 'player_muted': {
+      const p = msg.payload as { player_id: string; muted: boolean }
+      set((s) => ({
+        players: s.players.map((pl) =>
+          pl.id === p.player_id ? { ...pl, muted: p.muted } : pl
+        ),
+      }))
+      break
+    }
     case 'joined_as_player': {
       const p = msg.payload as { player: Player }
       set((s) => ({
@@ -365,6 +375,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const ws = get()._ws
     if (!ws) return
     ws.send(JSON.stringify({ type: 'chat_send', payload: { text } }))
+  },
+
+  mutePlayer: (playerId: string) => {
+    const ws = get()._ws
+    if (!ws) return
+    ws.send(JSON.stringify({ type: 'mute_player', payload: { player_id: playerId } }))
   },
 
   joinAsPlayer: () => {

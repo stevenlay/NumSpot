@@ -57,6 +57,7 @@ type Player struct {
 	SessionScore int    `json:"session_score"`
 	Card         []int  `json:"card"`
 	CardsLeft    int    `json:"cards_left"`
+	Muted        bool   `json:"muted"`
 
 	deck          [][]int
 	penalizedUntil time.Time
@@ -69,6 +70,7 @@ type Room struct {
 	Players          map[string]*Player
 	Clients          map[string]Client
 	Spectators       map[string]*SpectatorEntry
+	MutedPlayers     map[string]bool
 	State            GameState
 	CenterCard       []int
 	Deck             [][]int
@@ -87,9 +89,10 @@ func NewRoom(code, hostID, hostName string) *Room {
 		Code:       code,
 		HostID:     hostID,
 		Settings:   defaultRoomSettings(),
-		Players:    make(map[string]*Player),
-		Clients:    make(map[string]Client),
-		Spectators: make(map[string]*SpectatorEntry),
+		Players:      make(map[string]*Player),
+		Clients:      make(map[string]Client),
+		Spectators:   make(map[string]*SpectatorEntry),
+		MutedPlayers: make(map[string]bool),
 		State:      StateWaiting,
 		CreatedAt:  time.Now(),
 	}
@@ -104,6 +107,22 @@ func (r *Room) Lock()    { r.mu.Lock() }
 func (r *Room) Unlock()  { r.mu.Unlock() }
 func (r *Room) RLock()   { r.mu.RLock() }
 func (r *Room) RUnlock() { r.mu.RUnlock() }
+
+// ToggleMute flips the muted state for playerID and updates the Player struct.
+// Returns the new muted state. Caller must hold a write lock.
+func (r *Room) ToggleMute(playerID string) bool {
+	muted := !r.MutedPlayers[playerID]
+	r.MutedPlayers[playerID] = muted
+	if p, ok := r.Players[playerID]; ok {
+		p.Muted = muted
+	}
+	return muted
+}
+
+// IsMuted reports whether playerID is muted. Caller must hold at least a read lock.
+func (r *Room) IsMuted(playerID string) bool {
+	return r.MutedPlayers[playerID]
+}
 
 // TotalCardsLeft returns the sum of all players' remaining private deck sizes.
 // Caller must hold at least a read lock.

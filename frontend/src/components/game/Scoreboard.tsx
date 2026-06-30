@@ -1,3 +1,4 @@
+import { MicOff } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Player } from '../../types/game'
@@ -7,9 +8,11 @@ interface ScoreboardProps {
   currentPlayerId: string
   className?: string
   layout?: 'horizontal' | 'vertical'
+  isHost?: boolean
+  onMute?: (playerId: string) => void
 }
 
-export default function Scoreboard({ players, currentPlayerId, className, layout = 'horizontal' }: ScoreboardProps) {
+export default function Scoreboard({ players, currentPlayerId, className, layout = 'horizontal', isHost, onMute }: ScoreboardProps) {
   const sorted = [...players].sort((a, b) => b.score - a.score)
   const maxScore = sorted[0]?.score ?? 0
 
@@ -33,10 +36,25 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 <div className="flex items-center gap-2 min-w-0">
                   <span>{`${i + 1}.`}</span>
                   <span className="truncate font-medium">{p.name}{isYou ? ' (you)' : ''}</span>
+                  {p.muted && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <span className="font-bold">{p.score}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">{p.cards_left ?? 0} left</span>
+                  {isHost && !isYou && onMute && (
+                    <button
+                      onClick={() => onMute(p.id)}
+                      title={p.muted ? 'Unmute' : 'Mute'}
+                      className={cn(
+                        'ml-1 p-0.5 rounded transition-colors',
+                        p.muted
+                          ? 'text-red-500 hover:text-red-700'
+                          : 'text-muted-foreground/40 hover:text-muted-foreground'
+                      )}
+                    >
+                      <MicOff className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )
