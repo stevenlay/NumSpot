@@ -15,6 +15,7 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
   const chatError = useGameStore((s) => s.chatError)
   const sendChat = useGameStore((s) => s.sendChat)
   const playerId = useGameStore((s) => s.playerId)
+  const isMuted = useGameStore((s) => s.players.find((p) => p.id === s.playerId)?.muted ?? false)
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -42,7 +43,7 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
         entry.kind === 'status' ? (
           <div
             key={entry.id}
-            className="text-[11px] text-center py-0.5 rounded-md px-2"
+            className="text-[11px] text-center py-1 rounded-md px-2 w-full"
             style={
               entry.claimElapsedMs !== undefined
                 ? {
@@ -101,9 +102,10 @@ export default function ChatPanel({ mobileOpen = false, onMobileClose }: ChatPan
         onKeyDown={handleKeyDown}
         placeholder="Say something..."
         maxLength={200}
-        className="flex-1 text-base sm:text-sm bg-muted/50 border border-border rounded-lg px-3 py-1.5 outline-none focus:border-primary transition-colors"
+        disabled={isMuted}
+        className="flex-1 text-base sm:text-sm bg-muted/50 border border-border rounded-lg px-3 py-1.5 outline-none focus:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       />
-      <Button size="sm" onClick={handleSend} disabled={!input.trim()}>
+      <Button size="sm" onClick={handleSend} disabled={isMuted || !input.trim()}>
         Send
       </Button>
     </div>
