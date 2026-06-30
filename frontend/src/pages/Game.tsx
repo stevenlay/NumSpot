@@ -225,14 +225,16 @@ export default function Game() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <NumberCard
-                      numbers={myCard}
-                      label="Your Card — tap the matching number!"
-                      onClaim={handleClaim}
-                      clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
-                      highlightNumber={answerNum ?? highlightNum}
-                      className="w-full"
-                    />
+                    <div className={cn(lastClaim?.correct && lastClaim.playerId === playerId && 'animate-card-slide-to-center')}>
+                      <NumberCard
+                        numbers={myCard}
+                        label="Your Card — tap the matching number!"
+                        onClaim={handleClaim}
+                        clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
+                        highlightNumber={answerNum ?? highlightNum}
+                        className="w-full"
+                      />
+                    </div>
                     {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
                       <div className="flex flex-col gap-1.5">
                         <div className="h-2 w-full rounded-full bg-red-100 overflow-hidden">

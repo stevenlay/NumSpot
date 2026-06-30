@@ -59,4 +59,13 @@
   .animate-card-in {
     animation: card-in 0.3s ease-out;
   }
+
+  @keyframes card-slide-to-center {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-130%) scale(0.75); }
+  }
+
+  .animate-card-slide-to-center {
+    animation: card-slide-to-center 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
 }
