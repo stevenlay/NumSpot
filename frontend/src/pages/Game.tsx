@@ -226,7 +226,10 @@ export default function Game() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <div className={cn(lastClaim?.correct && lastClaim.playerId === playerId && 'animate-card-slide-to-center')}>
+                    <div
+                      key={myCard.join(',')}
+                      className={cn(lastClaim?.correct && lastClaim.playerId === playerId && 'animate-card-slide-to-center')}
+                    >
                       <NumberCard
                         numbers={myCard}
                         label="Your Card — tap the matching number!"
