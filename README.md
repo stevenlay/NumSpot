@@ -110,3 +110,23 @@ Docker Compose and Kubernetes manifests are in the repo root (`docker-compose.ym
 ```bash
 docker compose up --build
 ```
+
+### DuckDNS dynamic DNS updater
+
+The server uses DuckDNS to keep the domain pointed at the current public IP. A Windows scheduled task runs every 5 minutes to update it. To set it up on a new machine, run the following in an **elevated PowerShell** (Run as Administrator), replacing `<YOUR_TOKEN>` with your DuckDNS token:
+
+```powershell
+$action = New-ScheduledTaskAction `
+    -Execute "powershell.exe" `
+    -Argument '-NonInteractive -Command "Invoke-WebRequest -Uri \"https://www.duckdns.org/update?domains=numspot&token=<YOUR_TOKEN>&ip=\" -UseBasicParsing | Out-Null"'
+
+$trigger = New-ScheduledTaskTrigger -RepetitionInterval (New-TimeSpan -Minutes 5) -Once -At (Get-Date)
+
+Register-ScheduledTask -TaskName "DuckDNS Updater" -Action $action -Trigger $trigger -RunLevel Highest -Force
+```
+
+To remove the task:
+
+```powershell
+Unregister-ScheduledTask -TaskName "DuckDNS Updater" -Confirm:$false
+```
