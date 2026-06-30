@@ -22,7 +22,7 @@ export default function ScoreProgressBar({ players, currentPlayerId }: Props) {
   ]
 
   return (
-    <div className="shrink-0 border-t border-border bg-muted/20 px-4 py-3 flex flex-col gap-2">
+    <div className="shrink-0 bg-muted/20 px-4 py-3 flex flex-col gap-2">
       {entries.map(({ p, rank }, i) => {
         const score = totalScore(p)
         const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
