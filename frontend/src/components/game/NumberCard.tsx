@@ -9,6 +9,7 @@ interface NumberCardProps {
   label?: string
   className?: string
   showPile?: boolean
+  faceDown?: boolean
 }
 
 export default function NumberCard({
@@ -19,6 +20,7 @@ export default function NumberCard({
   label,
   className,
   showPile = false,
+  faceDown = false,
 }: NumberCardProps) {
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>
@@ -39,26 +41,28 @@ export default function NumberCard({
           )}
         >
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-            {numbers.map((n) => {
-              const isHighlight = highlightNumber === n
+            {numbers.map((n, i) => {
+              const isHighlight = !faceDown && highlightNumber === n
               return (
                 <button
-                  key={n}
-                  disabled={!clickable}
-                  onClick={() => clickable && onClaim?.(n)}
+                  key={faceDown ? i : n}
+                  disabled={!clickable || faceDown}
+                  onClick={() => clickable && !faceDown && onClaim?.(n)}
                   className={cn(
                     'flex items-center justify-center rounded-none text-sm font-bold h-8 sm:h-12 w-full transition-all select-none focus:outline-none',
-                    clickable
-                      ? 'cursor-pointer hover:bg-primary/10 hover:text-primary active:scale-95'
-                      : 'cursor-default',
-                    isHighlight
+                    faceDown
+                      ? 'cursor-default bg-muted/80'
+                      : clickable
+                        ? 'cursor-pointer hover:bg-primary/10 hover:text-primary active:scale-95'
+                        : 'cursor-default',
+                    !faceDown && (isHighlight
                       ? 'bg-green-400 text-white scale-110 shadow-md animate-flash'
                       : clickable
                         ? 'bg-muted text-foreground'
-                        : 'bg-background border-2 border-border text-muted-foreground shadow-sm',
+                        : 'bg-background border-2 border-border text-muted-foreground shadow-sm'),
                   )}
                 >
-                  {n}
+                  {faceDown ? null : n}
                 </button>
               )
             })}

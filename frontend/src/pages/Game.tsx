@@ -260,6 +260,7 @@ export default function Game() {
                         numbers={myCard}
                         label="Your Card — tap the matching number!"
                         onClaim={handleClaim}
+                        faceDown={!!(lastClaim?.correct && lastClaim.playerId === playerId)}
                         clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
                         highlightNumber={answerNum ?? highlightNum}
                         className="w-full"
