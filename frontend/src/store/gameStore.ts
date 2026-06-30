@@ -169,16 +169,18 @@ function handleMessage(
       if (p.correct) {
         const claimElapsedMs = Date.now() - (get().roundStartedAt ?? Date.now())
         addStatusEntry(set, `${playerName} got it! +1`, { claimElapsedMs })
-        // Update center card immediately; new player card is deferred until cooldown ends
-        if (p.players) {
-          const scoreMap = new Map(p.players.map(pl => [pl.id, pl.score]))
-          set((s) => ({
-            centerCard: p.center_card ?? s.centerCard,
-            players: s.players.map(pl => ({ ...pl, score: scoreMap.get(pl.id) ?? pl.score })),
-          }))
-        } else {
-          set({ centerCard: p.center_card ?? get().centerCard })
-        }
+        // Snapshot the claiming player's old card so we can animate it sliding to center
+        const { playerId } = get()
+        const claimingCard = p.player_id === playerId
+          ? (get().players.find((pl) => pl.id === playerId)?.card ?? null)
+          : null
+        // Update center card, full player data, and deck size immediately
+        set({
+          claimingCard,
+          centerCard: p.center_card ?? get().centerCard,
+          ...(p.players ? { players: p.players } : {}),
+          deckSize: p.deck_size,
+        })
       } else {
         const isSelf = get().playerId === p.player_id
         addStatusEntry(set, isSelf ? 'You missed!' : `${playerName} missed!`, { claimMissed: true })
@@ -190,8 +192,7 @@ function handleMessage(
       setTimeout(() => set({
         lastClaim: null,
         claimingCard: null,
-        players: p.players ?? get().players,
-        deckSize: p.correct ? p.deck_size : get().deckSize,
+        ...(!p.correct ? { players: p.players ?? get().players } : {}),
         ...(p.correct ? { roundStartedAt: Date.now() } : {}),
       }), clearDelay)
       break
