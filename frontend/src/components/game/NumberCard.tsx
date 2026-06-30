@@ -9,7 +9,6 @@ interface NumberCardProps {
   label?: string
   className?: string
   showPile?: boolean
-  pileKey?: string | number
 }
 
 export default function NumberCard({
@@ -20,7 +19,6 @@ export default function NumberCard({
   label,
   className,
   showPile = false,
-  pileKey,
 }: NumberCardProps) {
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>
@@ -35,11 +33,9 @@ export default function NumberCard({
           </>
         )}
         <Card
-          key={pileKey}
           className={cn(
             'p-2 sm:p-4 w-full rounded-none relative',
             !clickable && 'bg-muted/40 opacity-60',
-            pileKey !== undefined && 'animate-pile-land',
           )}
         >
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">

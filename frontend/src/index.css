@@ -68,14 +68,4 @@
   .animate-card-slide-to-center {
     animation: card-slide-to-center 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
-
-  @keyframes pile-land {
-    0%   { transform: translateY(-6px) scale(1.02); }
-    60%  { transform: translateY(2px) scale(0.99); }
-    100% { transform: translateY(0) scale(1); }
-  }
-
-  .animate-pile-land {
-    animation: pile-land 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
 }

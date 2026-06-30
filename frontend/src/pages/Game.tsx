@@ -204,7 +204,6 @@ export default function Game() {
                     highlightNumber={highlightNum}
                     clickable={false}
                     showPile={players.some((p) => p.score > 0)}
-                    pileKey={centerCard.join(',')}
                     className="w-full animate-card-in"
                   />
                   {lastClaim?.correct && (
