@@ -13,8 +13,9 @@ interface ScoreboardProps {
 }
 
 export default function Scoreboard({ players, currentPlayerId, className, layout = 'horizontal', isHost, onMute }: ScoreboardProps) {
-  const sorted = [...players].sort((a, b) => b.score - a.score)
-  const maxScore = sorted[0]?.score ?? 0
+  const totalScore = (p: Player) => p.session_score + p.score
+  const sorted = [...players].sort((a, b) => totalScore(b) - totalScore(a))
+  const maxScore = totalScore(sorted[0] ?? { session_score: 0, score: 0 } as Player)
 
   if (layout === 'vertical') {
     return (
@@ -22,7 +23,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Scores</h2>
         <div className="flex flex-col gap-1.5">
           {sorted.map((p, i) => {
-            const isLeader = p.score === maxScore && maxScore > 0
+            const isLeader = totalScore(p) === maxScore && maxScore > 0
             const isYou = p.id === currentPlayerId
             return (
               <div
@@ -39,7 +40,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                   {p.muted && (!isHost || isYou) && <MicOff className="w-3 h-3 shrink-0 text-red-400" />}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                  <span className="font-bold">{p.score}</span>
+                  <span className="font-bold">{totalScore(p)}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">{p.cards_left ?? 0} left</span>
                   {isHost && !isYou && onMute && (
                     <button
@@ -68,7 +69,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
     <div className={cn('w-full', className)}>
       <div className="flex flex-nowrap gap-1.5">
         {sorted.map((p, i) => {
-          const isLeader = p.score === maxScore && maxScore > 0
+          const isLeader = totalScore(p) === maxScore && maxScore > 0
           const isYou = p.id === currentPlayerId
           return (
             <Badge
@@ -82,7 +83,7 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
             >
               <span className="font-semibold">{i + 1}.</span>
               <span>{p.name}{isYou ? ' (you)' : ''}</span>
-              <span className="font-bold">{p.score}</span>
+              <span className="font-bold">{totalScore(p)}</span>
             </Badge>
           )
         })}
