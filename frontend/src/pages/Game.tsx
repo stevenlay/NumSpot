@@ -204,7 +204,7 @@ export default function Game() {
                     highlightNumber={highlightNum}
                     clickable={false}
                     showPile={players.some((p) => p.score > 0)}
-                    className="w-full animate-card-in"
+                    className="w-full"
                   />
                   {lastClaim?.correct && (
                     <div className="flex flex-col gap-1.5">
