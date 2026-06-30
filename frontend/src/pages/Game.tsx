@@ -235,7 +235,7 @@ export default function Game() {
                           style={{ animation: `penalty-fill ${settings.correct_claim_lock_ms}ms linear forwards` }}
                         />
                       </div>
-                      <p className="text-center text-sm font-medium text-green-600">Next round starting…</p>
+                      <p className="text-center text-sm font-medium text-green-600">Dealing next card…</p>
                     </div>
                   )}
                   <NumberCard
