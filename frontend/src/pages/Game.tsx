@@ -203,6 +203,8 @@ export default function Game() {
                     label="Center Card"
                     highlightNumber={highlightNum}
                     clickable={false}
+                    showPile
+                    pileKey={centerCard.join(',')}
                     className="w-full animate-card-in"
                   />
                   {lastClaim?.correct && (
