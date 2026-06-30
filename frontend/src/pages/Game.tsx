@@ -226,18 +226,16 @@ export default function Game() {
             <div className="w-full max-w-md flex flex-col gap-4">
               <div className="flex flex-col gap-4 sm:gap-10 pt-2 sm:pt-8">
                 <div className="flex flex-col gap-1.5">
-                  {lastClaim?.correct && (
-                    <div className="flex flex-col gap-1.5">
-                      <div className="h-2 w-full rounded-full bg-green-100 overflow-hidden">
-                        <div
-                          key={lastClaim.symbol}
-                          className="h-full bg-green-500 rounded-full"
-                          style={{ animation: `penalty-fill ${settings.correct_claim_lock_ms}ms linear forwards` }}
-                        />
-                      </div>
-                      <p className="text-center text-sm font-medium text-green-600">Dealing next card…</p>
+                  <div className={cn('flex flex-col gap-1.5', !lastClaim?.correct && 'invisible')}>
+                    <div className="h-2 w-full rounded-full bg-green-100 overflow-hidden">
+                      <div
+                        key={lastClaim?.symbol}
+                        className="h-full bg-green-500 rounded-full"
+                        style={lastClaim?.correct ? { animation: `penalty-fill ${settings.correct_claim_lock_ms}ms linear forwards` } : undefined}
+                      />
                     </div>
-                  )}
+                    <p className="text-center text-sm font-medium text-green-600">Dealing next card…</p>
+                  </div>
                   <NumberCard
                     key={centerCard.join(',')}
                     numbers={centerCard}
