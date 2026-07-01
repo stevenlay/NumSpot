@@ -9,6 +9,44 @@ import GameShell from '../components/game/GameShell'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
+import { initAudio, playCorrect, playWrong } from '../lib/sounds'
+
+const MATCH_HOLD_FRACTION = 0.45
+const FLY_DURATION_FRACTION = 0.35
+const MATCH_HOLD_MIN_MS = 200
+const FLY_DURATION_MIN_MS = 250
+
+function FlyingCenterCard({ numbers, startRect, endRect, durationMs }: {
+  numbers: number[]
+  startRect: DOMRect
+  endRect: DOMRect
+  durationMs: number
+}) {
+  const [moved, setMoved] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMoved(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const rect = moved ? endRect : startRect
+
+  return (
+    <div
+      className="fixed z-50 pointer-events-none transition-all ease-[cubic-bezier(0.4,0,0.2,1)]"
+      style={{
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        transitionProperty: 'left, top, width, height',
+        transitionDuration: `${durationMs}ms`,
+      }}
+    >
+      <NumberCard numbers={numbers} clickable={false} className="w-full h-full" />
+    </div>
+  )
+}
 
 export default function Game() {
   const navigate = useNavigate()
@@ -17,8 +55,9 @@ export default function Game() {
   const players = useGameStore((s) => s.players)
   const centerCard = useGameStore((s) => s.centerCard)
   const lastClaim = useGameStore((s) => s.lastClaim)
-  const claimingCard = useGameStore((s) => s.claimingCard)
+  const claimingPlayerCard = useGameStore((s) => s.claimingPlayerCard)
   const countdown = useGameStore((s) => s.countdown)
+  const cardsLeft = useGameStore((s) => s.cardsLeft)
   const roomCode = useGameStore((s) => s.roomCode)
   const spectators = useGameStore((s) => s.spectators)
   const claim = useGameStore((s) => s.claim)
@@ -32,16 +71,31 @@ export default function Game() {
   const currentRound = useGameStore((s) => s.currentRound)
   const totalRounds = useGameStore((s) => s.totalRounds)
   const disconnected = useGameStore((s) => s.disconnected)
+  const roundStartedAt = useGameStore((s) => s.roundStartedAt)
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [claimSent, setClaimSent] = useState(false)
+  const [displayedCenterCard, setDisplayedCenterCard] = useState<number[]>(centerCard)
+
+  const myStreak = useGameStore((s) => s.streaks[s.playerId] ?? 0)
+  const [hintNum, setHintNum] = useState<number | null>(null)
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastClaimRef = useRef<typeof lastClaim>(null)
+
+  const [claimPhase, setClaimPhase] = useState<'idle' | 'highlight' | 'flying'>('idle')
+  const [centerHidden, setCenterHidden] = useState(false)
+  const [flight, setFlight] = useState<{ numbers: number[]; startRect: DOMRect; endRect: DOMRect; durationMs: number } | null>(null)
+  const flightClaimRef = useRef<typeof lastClaim>(null)
+  const centerCardRef = useRef<HTMLDivElement>(null)
+  const ownCardRef = useRef<HTMLDivElement>(null)
 
   const myPlayer = players.find((p) => p.id === playerId)
   const myCard = myPlayer?.card ?? []
 
   const showToast = lastClaim?.correct === true
   const claimantName = lastClaim ? (players.find((p) => p.id === lastClaim.playerId)?.name ?? 'Someone') : ''
+  const streakLabel = myStreak >= 2 ? (myStreak >= 3 ? ` · 🔥 ${myStreak}x` : ` · ${myStreak}x`) : ''
   const toastText = lastClaim?.correct
-    ? lastClaim.playerId === playerId ? '✓ Correct! +1' : `${claimantName} got it!`
+    ? lastClaim.playerId === playerId ? `✓ Correct! +1${streakLabel}` : `${claimantName} got it!`
     : null
 
   useEffect(() => {
@@ -60,18 +114,96 @@ export default function Game() {
     if (lastClaim === null) setClaimSent(false)
   }, [lastClaim])
 
+  // Only reveal the new center card once the cooldown ends — this is also the
+  // moment the flying card (if any) has fully landed, so clear it in the same
+  // tick to avoid an earlier, separate swap.
+  useEffect(() => {
+    if (!lastClaim?.correct) {
+      setDisplayedCenterCard(centerCard)
+      setCenterHidden(false)
+      setFlight(null)
+      setClaimPhase('idle')
+    }
+  }, [centerCard, lastClaim])
+
+  // On a correct claim: hold the highlight on both cards for a beat, then — if it
+  // was this player's claim — fly the center card down onto their own card. It
+  // stays landed there until the cooldown ends and the real state (new center
+  // card, new hand) is revealed above.
+  useEffect(() => {
+    if (!lastClaim?.correct || lastClaim === flightClaimRef.current) return
+    flightClaimRef.current = lastClaim
+    const claimed = lastClaim
+    setClaimPhase('highlight')
+    setFlight(null)
+
+    if (settings.correct_claim_lock_ms <= 0) {
+      setCenterHidden(true)
+      return
+    }
+
+    const holdMs = Math.max(MATCH_HOLD_MIN_MS, settings.correct_claim_lock_ms * MATCH_HOLD_FRACTION)
+    const flyMs = Math.max(FLY_DURATION_MIN_MS, settings.correct_claim_lock_ms * FLY_DURATION_FRACTION)
+
+    const flyTimer = setTimeout(() => {
+      setClaimPhase('flying')
+      setCenterHidden(true)
+      if (claimed.playerId === playerId) {
+        const startEl = centerCardRef.current
+        const endEl = ownCardRef.current
+        if (startEl && endEl) {
+          setFlight({
+            numbers: displayedCenterCard,
+            startRect: startEl.getBoundingClientRect(),
+            endRect: endEl.getBoundingClientRect(),
+            durationMs: flyMs,
+          })
+        }
+      }
+    }, holdMs)
+
+    return () => clearTimeout(flyTimer)
+  }, [lastClaim, settings.correct_claim_lock_ms]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sounds
+  useEffect(() => {
+    if (!lastClaim || lastClaim === lastClaimRef.current) return
+    lastClaimRef.current = lastClaim
+    if (lastClaim.correct) {
+      playCorrect(lastClaim.playerId === playerId)
+    } else if (lastClaim.playerId === playerId) {
+      playWrong()
+    }
+  }, [lastClaim, playerId])
+
+  // Progressive hint — fires 6 s after each new card is dealt
+  // Progressive hint — fires after hint_delay_ms (0 = disabled)
+  useEffect(() => {
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
+    setHintNum(null)
+    if (roundStartedAt === null || countdown !== null || settings.hint_delay_ms === 0) return
+    const answer = myCard.find((n) => centerCard.includes(n)) ?? null
+    if (!answer) return
+    hintTimerRef.current = setTimeout(() => setHintNum(answer), settings.hint_delay_ms)
+    return () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current) }
+  }, [roundStartedAt, settings.hint_delay_ms]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleClaim = (symbol: number) => {
     if (claimSent) return
+    initAudio()
     setClaimSent(true)
     claim(symbol)
     setTimeout(() => setClaimSent(false), 2000)
   }
 
-  const highlightNum = lastClaim?.correct ? lastClaim.symbol : null
+  const highlightNum = lastClaim?.correct && claimPhase === 'highlight' ? lastClaim.symbol : null
   const highlightAnswerEnabled = useDevStore((s) => s.highlightAnswer)
   const answerNum = (import.meta.env.DEV && highlightAnswerEnabled)
-    ? myCard.find((n) => centerCard.includes(n)) ?? null
+    ? myCard.find((n) => displayedCenterCard.includes(n)) ?? null
     : null
+
+  const myPenalty = lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId
+  const hintToShow = !myPenalty && !isSpectator ? hintNum : null
 
   return (
     <>
@@ -87,6 +219,15 @@ export default function Game() {
             </div>
           )}
         </div>
+      )}
+
+      {flight && (
+        <FlyingCenterCard
+          numbers={flight.numbers}
+          startRect={flight.startRect}
+          endRect={flight.endRect}
+          durationMs={flight.durationMs}
+        />
       )}
 
       {showToast && toastText && (
@@ -148,12 +289,10 @@ export default function Game() {
             )}
             <div className="w-full flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-1.5 sm:py-2.5 shrink-0">
               <span className="text-xl sm:text-2xl font-black tabular-nums text-foreground">
-                {isSpectator
-                  ? players.reduce((sum, p) => sum + (p.cards_left ?? 0), 0)
-                  : (myPlayer?.cards_left ?? 0)}
+                {cardsLeft}
               </span>
               <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
-                {isSpectator ? 'cards left' : 'cards left in your deck'}
+                cards left
               </span>
               {totalRounds > 1 && (
                 <>
@@ -237,12 +376,15 @@ export default function Game() {
                     <p className="text-center text-sm font-medium text-green-600">Dealing next card…</p>
                   </div>
                   <NumberCard
-                    key={centerCard.join(',')}
-                    numbers={centerCard}
+                    key={displayedCenterCard.join(',')}
+                    cardRef={centerCardRef}
+                    numbers={centerHidden ? [] : displayedCenterCard}
                     label="Center Card"
+                    faceDown={countdown !== null}
                     highlightNumber={highlightNum}
                     clickable={false}
-                    showPile={players.some((p) => p.score > 0)}
+                    pileDepth={Math.ceil((cardsLeft / settings.deck_size) * 3)}
+
                     className="w-full"
                   />
                 </div>
@@ -253,30 +395,19 @@ export default function Game() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
+                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider text-center">
+                      Your Card — tap the matching number!
+                    </span>
                     <div className="relative">
                       <NumberCard
-                        numbers={myCard}
-                        label="Your Card — tap the matching number!"
+                        cardRef={ownCardRef}
+                        numbers={claimingPlayerCard ?? myCard}
                         onClaim={handleClaim}
-                        faceDown={!!(lastClaim?.correct && lastClaim.playerId === playerId)}
                         clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
                         highlightNumber={answerNum ?? highlightNum}
+                        hintNumber={hintToShow}
                         className="w-full"
                       />
-                      {claimingCard && lastClaim?.correct && lastClaim.playerId === playerId && (
-                        <div
-                          key={`${claimingCard.join(',')}-claiming`}
-                          className="absolute inset-0 animate-card-slide-to-center pointer-events-none"
-                        >
-                          <NumberCard
-                            numbers={claimingCard}
-                            label="Your Card — tap the matching number!"
-                            clickable={false}
-                            highlightNumber={highlightNum}
-                            className="w-full"
-                          />
-                        </div>
-                      )}
                     </div>
                     {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
                       <div className="flex flex-col gap-1.5">

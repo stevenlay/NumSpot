@@ -60,12 +60,11 @@
     animation: card-in 0.3s ease-out;
   }
 
-  @keyframes card-slide-to-center {
-    0%   { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-130%) scale(0.75); }
+  @keyframes hint-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); transform: scale(1); }
+    50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.55); transform: scale(1.06); }
   }
-
-  .animate-card-slide-to-center {
-    animation: card-slide-to-center 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  .animate-hint-pulse {
+    animation: hint-pulse 1.3s ease-in-out infinite;
   }
 }

@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
   rounds: 1,
+  hint_delay_ms: 6000,
 }
 
 const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -41,10 +42,10 @@ export interface GameStore {
   spectators: Spectator[]
   settings: RoomSettings
   centerCard: number[]
-  deckSize: number
+  cardsLeft: number
   countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
-  claimingCard: number[] | null
+  claimingPlayerCard: number[] | null
   roundStartedAt: number | null
   currentRound: number
   totalRounds: number
@@ -54,6 +55,7 @@ export interface GameStore {
   error: string | null
   chatError: string | null
   chatMessages: ChatEntry[]
+  streaks: Record<string, number>
   _ws: WebSocket | null
 
   // Actions
@@ -105,7 +107,7 @@ function handleMessage(
           spectators: p.spectators ?? [],
           settings: p.settings ?? DEFAULT_SETTINGS,
           centerCard: p.center_card ?? [],
-          deckSize: p.deck_size ?? 0,
+          cardsLeft: p.cards_left ?? 0,
           disconnected: false,
         })
       } else {
@@ -152,9 +154,9 @@ function handleMessage(
       addStatusEntry(set, 'Game started!')
       const skipCountdown = import.meta.env.DEV && useDevStore.getState().skipCountdown
       if (skipCountdown) {
-        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: null, roundStartedAt: Date.now(), currentRound: p.current_round, totalRounds: p.total_rounds })
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, cardsLeft: p.cards_left, countdown: null, roundStartedAt: Date.now(), currentRound: p.current_round, totalRounds: p.total_rounds })
       } else {
-        set({ phase: 'playing', centerCard: p.center_card, players: p.players, deckSize: p.deck_size, countdown: 3, currentRound: p.current_round, totalRounds: p.total_rounds })
+        set({ phase: 'playing', centerCard: p.center_card, players: p.players, cardsLeft: p.cards_left, countdown: 3, currentRound: p.current_round, totalRounds: p.total_rounds })
         setTimeout(() => set({ countdown: 2 }), 1000)
         setTimeout(() => set({ countdown: 1 }), 2000)
         setTimeout(() => set({ countdown: 0 }), 3000)
@@ -166,22 +168,28 @@ function handleMessage(
       const p = msg.payload as ClaimResultPayload
       const playerName = get().players.find((pl) => pl.id === p.player_id)?.name ?? 'Someone'
       const newLastClaim = { playerId: p.player_id, symbol: p.symbol, correct: p.correct }
+      const currentStreak = get().streaks[p.player_id] ?? 0
+      const newStreak = p.correct ? currentStreak + 1 : 0
+      const streakSuffix = p.correct && newStreak >= 2
+        ? (newStreak >= 3 ? ` · 🔥 ${newStreak}x` : ` · ${newStreak}x`)
+        : ''
       if (p.correct) {
         const claimElapsedMs = Date.now() - (get().roundStartedAt ?? Date.now())
         const { playerId } = get()
-        const claimingCard = p.player_id === playerId
-          ? (get().players.find((pl) => pl.id === playerId)?.card ?? null)
+        const claimingPlayerCard = p.player_id === playerId
+          ? [...(get().players.find((pl) => pl.id === playerId)?.card ?? [])]
           : null
         const statusEntry: ChatEntry = {
           id: crypto.randomUUID(), kind: 'status',
-          text: `${playerName} got it! +1`, timestamp: Date.now(), claimElapsedMs,
+          text: `${playerName} got it! +1${streakSuffix}`, timestamp: Date.now(), claimElapsedMs,
         }
         set((s) => ({
           lastClaim: newLastClaim,
-          claimingCard,
+          claimingPlayerCard,
           centerCard: p.center_card ?? s.centerCard,
           players: p.players ?? s.players,
-          deckSize: p.deck_size,
+          cardsLeft: p.cards_left,
+          streaks: { ...s.streaks, [p.player_id]: newStreak },
           chatMessages: [...s.chatMessages, statusEntry],
         }))
       } else {
@@ -192,6 +200,7 @@ function handleMessage(
         }
         set((s) => ({
           lastClaim: newLastClaim,
+          streaks: { ...s.streaks, [p.player_id]: 0 },
           chatMessages: [...s.chatMessages, statusEntry],
         }))
       }
@@ -201,7 +210,7 @@ function handleMessage(
         : settings.wrong_claim_penalty_ms
       setTimeout(() => set({
         lastClaim: null,
-        claimingCard: null,
+        claimingPlayerCard: null,
         ...(!p.correct ? { players: p.players ?? get().players } : {}),
         ...(p.correct ? { roundStartedAt: Date.now() } : {}),
       }), clearDelay)
@@ -233,13 +242,14 @@ function handleMessage(
         players: p.players,
         isHost: p.host_id === playerId,
         centerCard: [],
-        deckSize: 0,
+        cardsLeft: 0,
         lastClaim: null,
-        claimingCard: null,
+        claimingPlayerCard: null,
         roundStartedAt: null,
         countdown: null,
         currentRound: p.current_round,
         totalRounds: p.total_rounds,
+        streaks: {},
       })
       break
     }
@@ -334,10 +344,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   spectators: [],
   settings: DEFAULT_SETTINGS,
   centerCard: [],
-  deckSize: 0,
+  cardsLeft: 0,
   countdown: null,
   lastClaim: null,
-  claimingCard: null,
+  claimingPlayerCard: null,
   roundStartedAt: null,
   currentRound: 0,
   totalRounds: 1,
@@ -347,6 +357,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   error: null,
   chatError: null,
   chatMessages: [],
+  streaks: {},
   _ws: null,
 
   connect: (name: string, roomCode?: string) => {
@@ -456,10 +467,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       spectators: [],
       settings: DEFAULT_SETTINGS,
       centerCard: [],
-      deckSize: 0,
+      cardsLeft: 0,
       countdown: null,
       lastClaim: null,
-      claimingCard: null,
+      claimingPlayerCard: null,
       roundStartedAt: null,
       currentRound: 0,
       totalRounds: 1,
@@ -469,6 +480,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       error: null,
       chatError: null,
       chatMessages: [],
+      streaks: {},
       _ws: null,
     })
     if (ws) ws.close()

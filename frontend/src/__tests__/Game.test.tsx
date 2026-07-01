@@ -54,21 +54,22 @@ const DEFAULT_SETTINGS: RoomSettings = {
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
   rounds: 1,
+  hint_delay_ms: 6000,
 }
 
 function makePlayer(id: string, name: string, card: number[] = []): Player {
-  return { id, name, score: 0, session_score: 0, cards_left: 5, card }
+  return { id, name, score: 0, session_score: 0, card }
 }
 
 function makeStore(overrides = {}) {
   return {
     phase: 'playing',
     playerId: 'p1',
-    // Use numbers >10 to avoid collision with countdown values (0–3) and cards_left+1 (6)
+    // Use numbers >10 to avoid collision with countdown values (0–3)
     players: [makePlayer('p1', 'Alice', [11, 22, 33])],
     centerCard: [14, 25, 36],
     lastClaim: null,
-    deckSize: 5,
+    cardsLeft: 5,
     countdown: null,
     roomCode: 'ABC123',
     spectators: [] as Spectator[],
@@ -76,6 +77,7 @@ function makeStore(overrides = {}) {
     goHome: mockGoHome,
     isSpectator: false,
     settings: DEFAULT_SETTINGS,
+    streaks: {} as Record<string, number>,
     disconnected: false,
     chatMessages: [],
     chatError: null,
@@ -149,7 +151,7 @@ describe('Game', () => {
     it('shows cards remaining', () => {
       setup()
       expect(screen.getByText('5')).toBeInTheDocument()
-      expect(screen.getByText('cards left in your deck')).toBeInTheDocument()
+      expect(screen.getByText('cards left')).toBeInTheDocument()
     })
 
     it('shows the room code', () => {

@@ -3,7 +3,6 @@ export interface Player {
   name: string
   score: number
   session_score: number
-  cards_left: number
   card: number[]
   muted?: boolean
 }
@@ -45,6 +44,7 @@ export interface RoomSettings {
   wrong_claim_penalty_ms: number
   correct_claim_lock_ms: number
   rounds: number
+  hint_delay_ms: number
 }
 
 export interface RoomJoinedPayload {
@@ -56,7 +56,7 @@ export interface RoomJoinedPayload {
   settings: RoomSettings
   current_round?: number
   center_card?: number[]
-  deck_size?: number
+  cards_left?: number
   spectators?: Spectator[]
   last_winner_id?: string
   last_game_players?: Player[]
@@ -74,7 +74,7 @@ export interface PlayerLeftPayload {
 export interface GameStartedPayload {
   center_card: number[]
   players: Player[]
-  deck_size: number
+  cards_left: number
   current_round: number
   total_rounds: number
 }
@@ -85,7 +85,7 @@ export interface ClaimResultPayload {
   correct: boolean
   center_card: number[]
   players: Player[]
-  deck_size: number
+  cards_left: number
 }
 
 export interface GameOverPayload {

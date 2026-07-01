@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest'
 import Scoreboard from '../components/game/Scoreboard'
 import type { Player } from '../types/game'
 
-function makePlayer(id: string, name: string, score: number, cards_left = 0): Player {
-  return { id, name, score, session_score: 0, cards_left, card: [] }
+function makePlayer(id: string, name: string, score: number): Player {
+  return { id, name, score, session_score: 0, card: [] }
 }
 
 describe('Scoreboard', () => {
@@ -48,12 +48,6 @@ describe('Scoreboard', () => {
       render(<Scoreboard players={players} currentPlayerId="p1" layout="vertical" />)
       expect(screen.getByText(/Alice.*\(you\)/)).toBeInTheDocument()
       expect(screen.getByText('5')).toBeInTheDocument()
-    })
-
-    it('shows cards_left count', () => {
-      const withCards = [makePlayer('solo', 'Zara', 0, 11)]
-      render(<Scoreboard players={withCards} currentPlayerId="solo" layout="vertical" />)
-      expect(screen.getByText('11 left')).toBeInTheDocument()
     })
 
     it('renders Scores heading', () => {

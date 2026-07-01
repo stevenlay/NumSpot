@@ -55,18 +55,18 @@ func TestStartGame(t *testing.T) {
 		}
 	})
 
-	t.Run("total cards left equals cards distributed to players minus their current cards", func(t *testing.T) {
+	t.Run("total cards left equals shared deck size after dealing", func(t *testing.T) {
 		r := NewRoom("TEST", "host", "Host")
 		r.AddPlayer("p2", "P2")
 		r.AddPlayer("p3", "P3")
 		r.StartGame(StartGameOptions{})
 
-		numPlayers := len(r.Players)
-		cardsPerPlayer := (57 - 1) / numPlayers
-		wantTotalLeft := numPlayers * cardsPerPlayer // each player has cardsPerPlayer cards (hand + deck)
+		numPlayers := len(r.Players) // 3
+		// 57 cards: numPlayers to players, 1 to center, rest to shared deck
+		wantDeckSize := 57 - numPlayers - 1
 		got := r.TotalCardsLeft()
-		if got != wantTotalLeft {
-			t.Errorf("TotalCardsLeft = %d, want %d", got, wantTotalLeft)
+		if got != wantDeckSize {
+			t.Errorf("TotalCardsLeft = %d, want %d", got, wantDeckSize)
 		}
 	})
 
@@ -102,8 +102,8 @@ func TestClaim(t *testing.T) {
 		r := newPlayingRoom(t)
 		host := r.Players["host"]
 
-		oldPlayerCard := append([]int{}, host.Card...)
-		oldCardsLeft := host.CardsLeft
+		oldCenterCard := append([]int{}, r.CenterCard...)
+		oldDeckSize := r.TotalCardsLeft()
 
 		symbol := FindMatch(host.Card, r.CenterCard)
 		result := r.Claim("host", symbol)
@@ -117,16 +117,16 @@ func TestClaim(t *testing.T) {
 		if host.Score != 1 {
 			t.Errorf("Score = %d, want 1", host.Score)
 		}
-		// Player's old card should now be the center
-		if !slicesEqual(r.CenterCard, oldPlayerCard) {
-			t.Errorf("CenterCard = %v, want player's old card %v", r.CenterCard, oldPlayerCard)
+		// Player should have taken the center card
+		if !slicesEqual(host.Card, oldCenterCard) {
+			t.Errorf("player card = %v, want old center card %v", host.Card, oldCenterCard)
 		}
-		// Player should have a fresh card from their private deck
-		if slicesEqual(host.Card, oldPlayerCard) {
-			t.Error("player card should have changed after correct claim")
+		// A new center card should have been dealt from the shared deck
+		if slicesEqual(r.CenterCard, oldCenterCard) {
+			t.Error("CenterCard should have changed after correct claim")
 		}
-		if host.CardsLeft != oldCardsLeft-1 {
-			t.Errorf("CardsLeft = %d, want %d", host.CardsLeft, oldCardsLeft-1)
+		if r.TotalCardsLeft() != oldDeckSize-1 {
+			t.Errorf("shared deck size = %d, want %d", r.TotalCardsLeft(), oldDeckSize-1)
 		}
 	})
 
@@ -147,7 +147,7 @@ func TestClaim(t *testing.T) {
 		}
 
 		oldCenter := append([]int{}, r.CenterCard...)
-		oldCardsLeft := host.CardsLeft
+		oldDeckSize := r.TotalCardsLeft()
 
 		result := r.Claim("host", wrongSymbol)
 
@@ -163,8 +163,8 @@ func TestClaim(t *testing.T) {
 		if !slicesEqual(r.CenterCard, oldCenter) {
 			t.Error("CenterCard should not change on wrong claim")
 		}
-		if host.CardsLeft != oldCardsLeft {
-			t.Error("CardsLeft should not change on wrong claim")
+		if r.TotalCardsLeft() != oldDeckSize {
+			t.Error("shared deck size should not change on wrong claim")
 		}
 		if !host.penalizedUntil.After(time.Now()) {
 			t.Error("player should be penalized after wrong claim")
@@ -223,7 +223,7 @@ func TestClaim(t *testing.T) {
 		r := newPlayingRoom(t)
 		host := r.Players["host"]
 
-		host.deck = nil // exhaust the player's private deck before the claim
+		r.Deck = nil // exhaust the shared deck before the claim
 
 		symbol := FindMatch(host.Card, r.CenterCard)
 		result := r.Claim("host", symbol)
@@ -443,7 +443,7 @@ func TestResetToLobby(t *testing.T) {
 	t.Run("succeeds from finished state", func(t *testing.T) {
 		r := newPlayingRoom(t)
 		host := r.Players["host"]
-		host.deck = nil
+		r.Deck = nil
 		symbol := FindMatch(host.Card, r.CenterCard)
 		r.Claim("host", symbol)
 
@@ -469,7 +469,7 @@ func TestResetToLobby(t *testing.T) {
 		// Clear the claim lock so the next claim is not rejected.
 		r.claimLockedUntil = time.Time{}
 
-		host.deck = nil
+		r.Deck = nil
 		symbol2 := FindMatch(host.Card, r.CenterCard)
 		r.Claim("host", symbol2) // triggers game over
 

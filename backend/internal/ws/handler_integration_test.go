@@ -207,14 +207,14 @@ func TestStartGame_HappyPath(t *testing.T) {
 
 	var gs struct {
 		CenterCard []int `json:"center_card"`
-		DeckSize   int   `json:"deck_size"`
+		CardsLeft  int   `json:"cards_left"`
 	}
 	json.Unmarshal(raw, &gs)
 	if len(gs.CenterCard) == 0 {
 		t.Error("center_card should be non-empty after game start")
 	}
-	if gs.DeckSize == 0 {
-		t.Error("deck_size should be non-zero after game start")
+	if gs.CardsLeft == 0 {
+		t.Error("cards_left should be non-zero after game start")
 	}
 }
 
@@ -496,17 +496,15 @@ func TestRestartGame_HappyPath(t *testing.T) {
 
 	raw := startGame(t, host)
 
-	// Parse CenterCard + the player's own card and CardsLeft out of any game state blob.
+	// Parse CenterCard and player's own card out of any game state blob.
 	var center []int
 	var myCard []int
-	var cardsLeft int
 	parseState := func(data json.RawMessage) {
 		var s struct {
 			CenterCard []int `json:"center_card"`
 			Players    []struct {
-				ID        string `json:"id"`
-				Card      []int  `json:"card"`
-				CardsLeft int    `json:"cards_left"`
+				ID   string `json:"id"`
+				Card []int  `json:"card"`
 			} `json:"players"`
 		}
 		json.Unmarshal(data, &s)
@@ -514,20 +512,20 @@ func TestRestartGame_HappyPath(t *testing.T) {
 		for _, p := range s.Players {
 			if p.ID == playerID {
 				myCard = p.Card
-				cardsLeft = p.CardsLeft
 				break
 			}
 		}
 	}
 	parseState(raw)
 
-	// Play correct claims until the deck is exhausted (triggers game_over).
+	// Play correct claims until no center card remains (game_over imminent).
 	for {
 		symbol := game.FindMatch(myCard, center)
 		sendMsg(t, host, MsgClaim, map[string]any{"symbol": symbol})
 		crRaw := readUntil(t, host, MsgClaimResult)
 		parseState(crRaw)
-		if cardsLeft == 0 {
+		if len(center) == 0 {
+			// Center card is nil — game over was triggered by this claim.
 			break
 		}
 	}

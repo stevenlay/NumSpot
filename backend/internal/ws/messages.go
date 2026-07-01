@@ -79,7 +79,7 @@ type RoomJoinedPayload struct {
 	CurrentRound int             `json:"current_round"`
 	// Populated for spectators joining an active game
 	CenterCard []int           `json:"center_card,omitempty"`
-	DeckSize   int             `json:"deck_size,omitempty"`
+	CardsLeft   int             `json:"cards_left,omitempty"`
 	Spectators []SpectatorInfo `json:"spectators,omitempty"`
 	// Populated when joining a lobby after a completed game
 	LastWinnerID    string         `json:"last_winner_id,omitempty"`
@@ -98,7 +98,7 @@ type PlayerLeftPayload struct {
 type GameStartedPayload struct {
 	CenterCard   []int          `json:"center_card"`
 	Players      []*game.Player `json:"players"`
-	DeckSize     int            `json:"deck_size"`
+	CardsLeft     int            `json:"cards_left"`
 	CurrentRound int            `json:"current_round"`
 	TotalRounds  int            `json:"total_rounds"`
 }
@@ -109,7 +109,7 @@ type ClaimResultPayload struct {
 	Correct    bool           `json:"correct"`
 	CenterCard []int          `json:"center_card"`
 	Players    []*game.Player `json:"players"`
-	DeckSize   int            `json:"deck_size"`
+	CardsLeft   int            `json:"cards_left"`
 }
 
 type GameOverPayload struct {

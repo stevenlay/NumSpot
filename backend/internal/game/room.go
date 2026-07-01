@@ -40,6 +40,7 @@ type RoomSettings struct {
 	WrongClaimPenaltyMs int `json:"wrong_claim_penalty_ms"`
 	CorrectClaimLockMs  int `json:"correct_claim_lock_ms"`
 	Rounds              int `json:"rounds"`
+	HintDelayMs         int `json:"hint_delay_ms"`
 }
 
 func defaultRoomSettings() RoomSettings {
@@ -49,6 +50,7 @@ func defaultRoomSettings() RoomSettings {
 		WrongClaimPenaltyMs: 1500,
 		CorrectClaimLockMs:  2000,
 		Rounds:              1,
+		HintDelayMs:         6000,
 	}
 }
 
@@ -58,7 +60,6 @@ type Player struct {
 	Score        int    `json:"score"`
 	SessionScore int    `json:"session_score"`
 	Card         []int  `json:"card"`
-	CardsLeft    int    `json:"cards_left"`
 	Muted        bool   `json:"muted"`
 
 	deck          [][]int
@@ -127,14 +128,10 @@ func (r *Room) IsMuted(playerID string) bool {
 	return r.MutedPlayers[playerID]
 }
 
-// TotalCardsLeft returns the sum of all players' remaining private deck sizes.
+// TotalCardsLeft returns the number of cards remaining in the shared center deck.
 // Caller must hold at least a read lock.
 func (r *Room) TotalCardsLeft() int {
-	total := 0
-	for _, p := range r.Players {
-		total += p.CardsLeft
-	}
-	return total
+	return len(r.Deck)
 }
 
 // AddPlayer adds a new player to the room. Returns error if room is not in waiting state or full.
@@ -185,6 +182,12 @@ func (r *Room) UpdateSettings(s RoomSettings) RoomSettings {
 	validRounds := map[int]bool{1: true, 3: true, 5: true}
 	if !validRounds[s.Rounds] {
 		s.Rounds = 1
+	}
+	if s.HintDelayMs < 0 {
+		s.HintDelayMs = 0
+	}
+	if s.HintDelayMs > 60000 {
+		s.HintDelayMs = 60000
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -318,40 +321,45 @@ func (r *Room) StartGame(opts StartGameOptions) error {
 		deck = deck[:size]
 	}
 
-	// Convert to display (1-indexed)
+	// Build a random permutation of display numbers so structurally-adjacent symbols
+	// get scattered across the full value range, preventing color clustering on cards.
+	totalSymbols := 7*7 + 7 + 1 // p²+p+1 = 57 for p=7
+	perm := make([]int, totalSymbols)
+	for i := range perm {
+		perm[i] = i + 1
+	}
+	rng.Shuffle(len(perm), func(i, j int) { perm[i], perm[j] = perm[j], perm[i] })
+
+	// Apply permutation (replaces ToDisplay) and shuffle symbols within each card
 	for i, card := range deck {
-		deck[i] = ToDisplay(card)
+		remapped := make([]int, len(card))
+		for j, sym := range card {
+			remapped[j] = perm[sym]
+		}
+		rng.Shuffle(len(remapped), func(a, b int) { remapped[a], remapped[b] = remapped[b], remapped[a] })
+		deck[i] = remapped
 	}
 
-	// Deal center card and distribute remaining cards evenly to per-player decks
+	// Deal 1 card to each player; remaining cards form the shared center deck
 	numPlayers := len(r.Players)
 	if len(deck) < numPlayers+1 {
 		return errors.New("not enough cards")
 	}
 
-	last := len(deck) - 1
-	r.CenterCard = deck[last]
-	deck = deck[:last]
-
-	// Distribute remaining cards evenly; leftover cards are discarded
-	cardsPerPlayer := len(deck) / numPlayers
 	playerList := make([]*Player, 0, numPlayers)
 	for _, p := range r.Players {
 		playerList = append(playerList, p)
 	}
 	for i, p := range playerList {
-		alloc := deck[i*cardsPerPlayer : (i+1)*cardsPerPlayer]
-		p.Card = alloc[0]
-		if len(alloc) > 1 {
-			p.deck = make([][]int, len(alloc)-1)
-			copy(p.deck, alloc[1:])
-		} else {
-			p.deck = nil
-		}
-		p.CardsLeft = len(p.deck) + 1
+		p.Card = deck[i]
+		p.deck = nil
 	}
 
-	r.Deck = nil
+	// First remaining card is the initial center; the rest become the shared deck
+	remaining := deck[numPlayers:]
+	r.CenterCard = remaining[0]
+	r.Deck = make([][]int, len(remaining)-1)
+	copy(r.Deck, remaining[1:])
 	r.State = StatePlaying
 	r.CurrentRound++
 	r.wrongClaimDelay = time.Duration(r.Settings.WrongClaimPenaltyMs) * time.Millisecond
@@ -370,7 +378,7 @@ type ClaimResult struct {
 	CenterCard []int
 	Players    []*Player
 	WinnerID   string
-	DeckSize   int
+	CardsLeft  int
 }
 
 // Claim processes a player's claim of a symbol (1-indexed display number).
@@ -402,15 +410,16 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	r.claimLockedUntil = now.Add(r.correctClaimDelay)
 	p.Score++
 
-	// Player's card becomes the new center; player draws from their private deck
-	r.CenterCard = p.Card
-	if len(p.deck) > 0 {
-		last := len(p.deck) - 1
-		p.Card = p.deck[last]
-		p.deck = p.deck[:last]
-		p.CardsLeft = len(p.deck) + 1
+	// Player takes the center card — it becomes the top of their pile
+	p.Card = r.CenterCard
+
+	// Deal the next center card from the shared deck; game over if deck is empty
+	if len(r.Deck) > 0 {
+		last := len(r.Deck) - 1
+		r.CenterCard = r.Deck[last]
+		r.Deck = r.Deck[:last]
 	} else {
-		p.CardsLeft = 0
+		r.CenterCard = nil
 		r.State = StateFinished
 	}
 
@@ -425,18 +434,13 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 		players = append(players, pl)
 	}
 
-	totalCardsLeft := 0
-	for _, pl := range r.Players {
-		totalCardsLeft += pl.CardsLeft
-	}
-
 	return ClaimResult{
 		Correct:    true,
 		GameOver:   gameOver,
 		CenterCard: r.CenterCard,
 		Players:    players,
 		WinnerID:   winnerID,
-		DeckSize:   totalCardsLeft,
+		CardsLeft:  len(r.Deck),
 	}
 }
 
@@ -482,7 +486,6 @@ func (r *Room) ResetSession() error {
 		p.Score = 0
 		p.Card = nil
 		p.deck = nil
-		p.CardsLeft = 0
 	}
 	r.CurrentRound = 0
 	r.Deck = nil
@@ -522,7 +525,6 @@ func (r *Room) resetLocked() {
 		p.Score = 0
 		p.Card = nil
 		p.deck = nil
-		p.CardsLeft = 0
 	}
 	r.Deck = nil
 	r.CenterCard = nil

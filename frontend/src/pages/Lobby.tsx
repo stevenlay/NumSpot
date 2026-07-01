@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
   rounds: 1,
+  hint_delay_ms: 6000,
 }
 
 const WRONG_CLAIM_PRESETS = [
@@ -34,6 +35,13 @@ const DECK_SIZE_PRESETS = [
   { label: '13', cards: 13 },
   { label: '31', cards: 31 },
   { label: '57', cards: 57 },
+] as const
+
+const HINT_DELAY_PRESETS = [
+  { label: 'Off', ms: 0 },
+  { label: '3s', ms: 3000 },
+  { label: '6s', ms: 6000 },
+  { label: '10s', ms: 10000 },
 ] as const
 
 export default function Lobby() {
@@ -423,6 +431,34 @@ export default function Lobby() {
                     )}
                   >
                     {n}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Hint delay */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Hint after</span>
+              <span className={cn('text-sm', settings.hint_delay_ms !== DEFAULT_SETTINGS.hint_delay_ms ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {HINT_DELAY_PRESETS.find((p) => p.ms === settings.hint_delay_ms)?.label ?? `${settings.hint_delay_ms / 1000}s`}
+              </span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {HINT_DELAY_PRESETS.map((p) => (
+                  <button
+                    key={p.ms}
+                    onClick={() => updateSettings({ ...settings, hint_delay_ms: p.ms })}
+                    className={cn(
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
+                      settings.hint_delay_ms === p.ms
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {p.label}
                   </button>
                 ))}
               </div>

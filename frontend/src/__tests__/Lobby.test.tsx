@@ -36,10 +36,11 @@ const DEFAULT_SETTINGS: RoomSettings = {
   wrong_claim_penalty_ms: 1500,
   correct_claim_lock_ms: 2000,
   rounds: 1,
+  hint_delay_ms: 6000,
 }
 
 function makePlayer(id: string, name: string, score = 0): Player {
-  return { id, name, score, session_score: 0, cards_left: 0, card: [] }
+  return { id, name, score, session_score: 0, card: [] }
 }
 
 function makeStore(overrides = {}) {

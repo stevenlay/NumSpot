@@ -41,7 +41,6 @@ export default function Scoreboard({ players, currentPlayerId, className, layout
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <span className="font-bold">{totalScore(p)}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{p.cards_left ?? 0} left</span>
                   {isHost && !isYou && onMute && (
                     <button
                       onClick={() => onMute(p.id)}

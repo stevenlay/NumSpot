@@ -264,7 +264,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 							Players:      room.PlayerList(),
 							Settings:     settings,
 							CenterCard:   centerCard,
-							DeckSize:     deckSize,
+							CardsLeft:     deckSize,
 							CurrentRound: currentRound,
 						},
 					})
@@ -306,7 +306,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 				Players:      room.PlayerList(),
 				Settings:     spectatorSettings,
 				CenterCard:   centerCard,
-				DeckSize:     deckSize,
+				CardsLeft:     deckSize,
 				Spectators:   spectators,
 				CurrentRound: spectatorCurrentRound,
 			},
@@ -443,7 +443,7 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 		Payload: GameStartedPayload{
 			CenterCard:   centerCard,
 			Players:      players,
-			DeckSize:     deckSize,
+			CardsLeft:     deckSize,
 			CurrentRound: currentRound,
 			TotalRounds:  totalRounds,
 		},
@@ -482,7 +482,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 			Correct:    result.Correct,
 			CenterCard: result.CenterCard,
 			Players:    result.Players,
-			DeckSize:   result.DeckSize,
+			CardsLeft:   result.CardsLeft,
 		},
 	})
 
@@ -530,7 +530,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 					Payload: GameStartedPayload{
 						CenterCard:   centerCard,
 						Players:      room.PlayerList(),
-						DeckSize:     deckSize,
+						CardsLeft:     deckSize,
 						CurrentRound: nextRound,
 						TotalRounds:  totalRounds,
 					},
