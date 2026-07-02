@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   max_players: 8,
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
+  wrong_claim_point_penalty: 0,
   correct_claim_lock_ms: 2000,
   rounds: 1,
   hint_delay_ms: 6000,

@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   max_players: 8,
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
+  wrong_claim_point_penalty: 0,
   correct_claim_lock_ms: 2000,
   rounds: 1,
   hint_delay_ms: 6000,
@@ -22,6 +23,13 @@ const WRONG_CLAIM_PRESETS = [
   { label: 'Short', ms: 750 },
   { label: 'Normal', ms: 1500 },
   { label: 'Long', ms: 3000 },
+] as const
+
+const POINT_PENALTY_PRESETS = [
+  { label: 'Off', pts: 0 },
+  { label: '-0.5', pts: 0.5 },
+  { label: '-1', pts: 1 },
+  { label: '-2', pts: 2 },
 ] as const
 
 const CORRECT_CLAIM_PRESETS = [
@@ -370,6 +378,34 @@ export default function Lobby() {
                     className={cn(
                       'flex-1 text-sm py-2.5 rounded transition-colors',
                       settings.wrong_claim_penalty_ms === p.ms
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Wrong claim point deduction */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Wrong claim penalty (points)</span>
+              <span className={cn('text-sm', settings.wrong_claim_point_penalty !== DEFAULT_SETTINGS.wrong_claim_point_penalty ? 'text-primary font-medium' : 'text-muted-foreground')}>
+                {POINT_PENALTY_PRESETS.find((p) => p.pts === settings.wrong_claim_point_penalty)?.label ?? `-${settings.wrong_claim_point_penalty}`}
+              </span>
+            </div>
+            {isHost && (
+              <div className="flex gap-1">
+                {POINT_PENALTY_PRESETS.map((p) => (
+                  <button
+                    key={p.pts}
+                    onClick={() => updateSettings({ ...settings, wrong_claim_point_penalty: p.pts })}
+                    className={cn(
+                      'flex-1 text-sm py-2.5 rounded transition-colors',
+                      settings.wrong_claim_point_penalty === p.pts
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80 text-muted-foreground'
                     )}

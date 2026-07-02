@@ -264,7 +264,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 							Players:      room.PlayerList(),
 							Settings:     settings,
 							CenterCard:   centerCard,
-							CardsLeft:     deckSize,
+							CardsLeft:    deckSize,
 							CurrentRound: currentRound,
 						},
 					})
@@ -306,7 +306,7 @@ func (h *Handler) handleJoinRoom(c *WSClient, payload map[string]interface{}) {
 				Players:      room.PlayerList(),
 				Settings:     spectatorSettings,
 				CenterCard:   centerCard,
-				CardsLeft:     deckSize,
+				CardsLeft:    deckSize,
 				Spectators:   spectators,
 				CurrentRound: spectatorCurrentRound,
 			},
@@ -443,7 +443,7 @@ func (h *Handler) handleStartGame(c *WSClient, payload map[string]interface{}) {
 		Payload: GameStartedPayload{
 			CenterCard:   centerCard,
 			Players:      players,
-			CardsLeft:     deckSize,
+			CardsLeft:    deckSize,
 			CurrentRound: currentRound,
 			TotalRounds:  totalRounds,
 		},
@@ -482,7 +482,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 			Correct:    result.Correct,
 			CenterCard: result.CenterCard,
 			Players:    result.Players,
-			CardsLeft:   result.CardsLeft,
+			CardsLeft:  result.CardsLeft,
 		},
 	})
 
@@ -530,7 +530,7 @@ func (h *Handler) handleClaim(c *WSClient, payload map[string]interface{}) {
 					Payload: GameStartedPayload{
 						CenterCard:   centerCard,
 						Players:      room.PlayerList(),
-						CardsLeft:     deckSize,
+						CardsLeft:    deckSize,
 						CurrentRound: nextRound,
 						TotalRounds:  totalRounds,
 					},
@@ -618,15 +618,17 @@ func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface
 	maxPlayers, _ := payload["max_players"].(float64)
 	deckSize, _ := payload["deck_size"].(float64)
 	wrongMs, _ := payload["wrong_claim_penalty_ms"].(float64)
+	wrongPointPenalty, _ := payload["wrong_claim_point_penalty"].(float64)
 	correctMs, _ := payload["correct_claim_lock_ms"].(float64)
 	rounds, _ := payload["rounds"].(float64)
 
 	clamped := room.UpdateSettings(game.RoomSettings{
-		MaxPlayers:          int(maxPlayers),
-		DeckSize:            int(deckSize),
-		WrongClaimPenaltyMs: int(wrongMs),
-		CorrectClaimLockMs:  int(correctMs),
-		Rounds:              int(rounds),
+		MaxPlayers:             int(maxPlayers),
+		DeckSize:               int(deckSize),
+		WrongClaimPenaltyMs:    int(wrongMs),
+		WrongClaimPointPenalty: wrongPointPenalty,
+		CorrectClaimLockMs:     int(correctMs),
+		Rounds:                 int(rounds),
 	})
 
 	h.broadcast(c.RoomCode, OutboundMessage{
@@ -651,7 +653,7 @@ func (h *Handler) handleDevReset(c *WSClient) {
 
 	// Find winner by current score
 	winnerID := ""
-	maxScore := -1
+	maxScore := -1.0
 	for _, p := range players {
 		if p.Score > maxScore {
 			maxScore = p.Score

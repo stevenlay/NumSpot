@@ -115,7 +115,7 @@ func TestClaim(t *testing.T) {
 			t.Fatal("expected Rejected=false")
 		}
 		if host.Score != 1 {
-			t.Errorf("Score = %d, want 1", host.Score)
+			t.Errorf("Score = %v, want 1", host.Score)
 		}
 		// Player should have taken the center card
 		if !slicesEqual(host.Card, oldCenterCard) {
@@ -158,7 +158,7 @@ func TestClaim(t *testing.T) {
 			t.Error("expected Rejected=false")
 		}
 		if host.Score != 0 {
-			t.Errorf("Score = %d, want 0", host.Score)
+			t.Errorf("Score = %v, want 0", host.Score)
 		}
 		if !slicesEqual(r.CenterCard, oldCenter) {
 			t.Error("CenterCard should not change on wrong claim")
@@ -168,6 +168,93 @@ func TestClaim(t *testing.T) {
 		}
 		if !host.penalizedUntil.After(time.Now()) {
 			t.Error("player should be penalized after wrong claim")
+		}
+	})
+
+	t.Run("wrong claim deducts points when configured", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.UpdateSettings(RoomSettings{MaxPlayers: 8, DeckSize: 57, Rounds: 1, WrongClaimPointPenalty: 2})
+		if err := r.StartGame(StartGameOptions{}); err != nil {
+			t.Fatalf("StartGame: %v", err)
+		}
+		r.countdownUntil = time.Now().Add(-time.Second)
+		host := r.Players["host"]
+		host.Score = 3
+
+		match := FindMatch(host.Card, r.CenterCard)
+		wrongSymbol := -1
+		for _, n := range host.Card {
+			if n != match {
+				wrongSymbol = n
+				break
+			}
+		}
+		if wrongSymbol == -1 {
+			t.Fatal("could not find a wrong symbol on player's card")
+		}
+
+		result := r.Claim("host", wrongSymbol)
+		if host.Score != 1 {
+			t.Errorf("Score = %v, want 1", host.Score)
+		}
+		if len(result.Players) == 0 {
+			t.Error("expected updated Players list on wrong claim")
+		}
+	})
+
+	t.Run("wrong claim deducts a fractional point penalty", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.UpdateSettings(RoomSettings{MaxPlayers: 8, DeckSize: 57, Rounds: 1, WrongClaimPointPenalty: 0.5})
+		if err := r.StartGame(StartGameOptions{}); err != nil {
+			t.Fatalf("StartGame: %v", err)
+		}
+		r.countdownUntil = time.Now().Add(-time.Second)
+		host := r.Players["host"]
+		host.Score = 2
+
+		match := FindMatch(host.Card, r.CenterCard)
+		wrongSymbol := -1
+		for _, n := range host.Card {
+			if n != match {
+				wrongSymbol = n
+				break
+			}
+		}
+		if wrongSymbol == -1 {
+			t.Fatal("could not find a wrong symbol on player's card")
+		}
+
+		r.Claim("host", wrongSymbol)
+		if host.Score != 1.5 {
+			t.Errorf("Score = %v, want 1.5", host.Score)
+		}
+	})
+
+	t.Run("wrong claim point penalty does not go below zero", func(t *testing.T) {
+		r := NewRoom("TEST", "host", "Host")
+		r.UpdateSettings(RoomSettings{MaxPlayers: 8, DeckSize: 57, Rounds: 1, WrongClaimPointPenalty: 5})
+		if err := r.StartGame(StartGameOptions{}); err != nil {
+			t.Fatalf("StartGame: %v", err)
+		}
+		r.countdownUntil = time.Now().Add(-time.Second)
+		host := r.Players["host"]
+		host.Score = 1
+
+		match := FindMatch(host.Card, r.CenterCard)
+		wrongSymbol := -1
+		for _, n := range host.Card {
+			if n != match {
+				wrongSymbol = n
+				break
+			}
+		}
+		if wrongSymbol == -1 {
+			t.Fatal("could not find a wrong symbol on player's card")
+		}
+
+		r.Claim("host", wrongSymbol)
+		if host.Score != 0 {
+			t.Errorf("Score = %v, want 0 (clamped)", host.Score)
 		}
 	})
 
@@ -476,10 +563,10 @@ func TestResetToLobby(t *testing.T) {
 		r.ResetToLobby()
 
 		if host.Score != 0 {
-			t.Errorf("Score = %d after reset, want 0", host.Score)
+			t.Errorf("Score = %v after reset, want 0", host.Score)
 		}
 		if host.SessionScore != scoreAfterClaim+1 {
-			t.Errorf("SessionScore = %d, want %d", host.SessionScore, scoreAfterClaim+1)
+			t.Errorf("SessionScore = %v, want %v", host.SessionScore, scoreAfterClaim+1)
 		}
 	})
 }
@@ -499,7 +586,7 @@ func TestForceResetToLobby(t *testing.T) {
 			t.Error("Score should be 0 after reset")
 		}
 		if r.Players["host"].SessionScore != 3 {
-			t.Errorf("SessionScore = %d, want 3", r.Players["host"].SessionScore)
+			t.Errorf("SessionScore = %v, want 3", r.Players["host"].SessionScore)
 		}
 	})
 
@@ -511,7 +598,7 @@ func TestForceResetToLobby(t *testing.T) {
 			t.Errorf("State = %v, want StateWaiting", r.State)
 		}
 		if r.Players["host"].SessionScore != 5 {
-			t.Errorf("SessionScore = %d, want 5", r.Players["host"].SessionScore)
+			t.Errorf("SessionScore = %v, want 5", r.Players["host"].SessionScore)
 		}
 	})
 }

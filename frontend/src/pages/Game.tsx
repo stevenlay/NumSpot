@@ -55,6 +55,7 @@ export default function Game() {
   const players = useGameStore((s) => s.players)
   const centerCard = useGameStore((s) => s.centerCard)
   const lastClaim = useGameStore((s) => s.lastClaim)
+  const myPenalty = useGameStore((s) => s.penalties[s.playerId])
   const claimingPlayerCard = useGameStore((s) => s.claimingPlayerCard)
   const countdown = useGameStore((s) => s.countdown)
   const cardsLeft = useGameStore((s) => s.cardsLeft)
@@ -202,7 +203,6 @@ export default function Game() {
     ? myCard.find((n) => displayedCenterCard.includes(n)) ?? null
     : null
 
-  const myPenalty = lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId
   const hintToShow = !myPenalty && !isSpectator ? hintNum : null
 
   return (
@@ -403,17 +403,17 @@ export default function Game() {
                         cardRef={ownCardRef}
                         numbers={claimingPlayerCard ?? myCard}
                         onClaim={handleClaim}
-                        clickable={!claimSent && countdown === null && (lastClaim === null || (!lastClaim.correct && lastClaim.playerId !== playerId))}
+                        clickable={!claimSent && countdown === null && !lastClaim?.correct && !myPenalty}
                         highlightNumber={answerNum ?? highlightNum}
                         hintNumber={hintToShow}
                         className="w-full"
                       />
                     </div>
-                    {lastClaim !== null && !lastClaim.correct && lastClaim.playerId === playerId && (
+                    {myPenalty && (
                       <div className="flex flex-col gap-1.5">
                         <div className="h-2 w-full rounded-full bg-red-100 overflow-hidden">
                           <div
-                            key={lastClaim.symbol}
+                            key={myPenalty.until}
                             className="h-full bg-red-500 rounded-full"
                             style={{ animation: `penalty-fill ${settings.wrong_claim_penalty_ms}ms linear forwards` }}
                           />

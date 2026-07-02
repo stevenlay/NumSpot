@@ -42,6 +42,7 @@ export interface RoomSettings {
   max_players: number
   deck_size: number
   wrong_claim_penalty_ms: number
+  wrong_claim_point_penalty: number
   correct_claim_lock_ms: number
   rounds: number
   hint_delay_ms: number

@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: RoomSettings = {
   max_players: 8,
   deck_size: 57,
   wrong_claim_penalty_ms: 1500,
+  wrong_claim_point_penalty: 0,
   correct_claim_lock_ms: 2000,
   rounds: 1,
   hint_delay_ms: 6000,
@@ -46,6 +47,7 @@ export interface GameStore {
   countdown: number | null
   lastClaim: { playerId: string; symbol: number; correct: boolean } | null
   claimingPlayerCard: number[] | null
+  penalties: Record<string, { symbol: number; until: number }>
   roundStartedAt: number | null
   currentRound: number
   totalRounds: number
@@ -194,15 +196,27 @@ function handleMessage(
         }))
       } else {
         const isSelf = get().playerId === p.player_id
+        const pointPenalty = get().settings.wrong_claim_point_penalty
+        const penaltySuffix = pointPenalty > 0 ? ` -${pointPenalty}` : ''
         const statusEntry: ChatEntry = {
           id: crypto.randomUUID(), kind: 'status',
-          text: isSelf ? 'You missed!' : `${playerName} missed!`, timestamp: Date.now(), claimMissed: true,
+          text: (isSelf ? 'You missed!' : `${playerName} missed!`) + penaltySuffix, timestamp: Date.now(), claimMissed: true,
         }
+        const penaltyUntil = Date.now() + get().settings.wrong_claim_penalty_ms
         set((s) => ({
           lastClaim: newLastClaim,
           streaks: { ...s.streaks, [p.player_id]: 0 },
           chatMessages: [...s.chatMessages, statusEntry],
+          penalties: { ...s.penalties, [p.player_id]: { symbol: p.symbol, until: penaltyUntil } },
         }))
+        // Each player's penalty clears independently — a different player's wrong
+        // guess must never cut short (or extend) this player's own cooldown.
+        setTimeout(() => set((s) => {
+          if (s.penalties[p.player_id]?.until !== penaltyUntil) return {}
+          const penalties = { ...s.penalties }
+          delete penalties[p.player_id]
+          return { penalties }
+        }), get().settings.wrong_claim_penalty_ms)
       }
       const { settings } = get()
       const clearDelay = p.correct
@@ -245,6 +259,7 @@ function handleMessage(
         cardsLeft: 0,
         lastClaim: null,
         claimingPlayerCard: null,
+        penalties: {},
         roundStartedAt: null,
         countdown: null,
         currentRound: p.current_round,
@@ -348,6 +363,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   countdown: null,
   lastClaim: null,
   claimingPlayerCard: null,
+  penalties: {},
   roundStartedAt: null,
   currentRound: 0,
   totalRounds: 1,
@@ -471,6 +487,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       countdown: null,
       lastClaim: null,
       claimingPlayerCard: null,
+      penalties: {},
       roundStartedAt: null,
       currentRound: 0,
       totalRounds: 1,

@@ -10,7 +10,7 @@ import (
 type GameState int
 
 const (
-	StateWaiting  GameState = iota
+	StateWaiting GameState = iota
 	StatePlaying
 	StateFinished
 )
@@ -35,70 +35,72 @@ const (
 
 // RoomSettings holds configurable game settings that the host can change in the lobby.
 type RoomSettings struct {
-	MaxPlayers          int `json:"max_players"`
-	DeckSize            int `json:"deck_size"`
-	WrongClaimPenaltyMs int `json:"wrong_claim_penalty_ms"`
-	CorrectClaimLockMs  int `json:"correct_claim_lock_ms"`
-	Rounds              int `json:"rounds"`
-	HintDelayMs         int `json:"hint_delay_ms"`
+	MaxPlayers             int     `json:"max_players"`
+	DeckSize               int     `json:"deck_size"`
+	WrongClaimPenaltyMs    int     `json:"wrong_claim_penalty_ms"`
+	WrongClaimPointPenalty float64 `json:"wrong_claim_point_penalty"`
+	CorrectClaimLockMs     int     `json:"correct_claim_lock_ms"`
+	Rounds                 int     `json:"rounds"`
+	HintDelayMs            int     `json:"hint_delay_ms"`
 }
 
 func defaultRoomSettings() RoomSettings {
 	return RoomSettings{
-		MaxPlayers:          8,
-		DeckSize:            57,
-		WrongClaimPenaltyMs: 1500,
-		CorrectClaimLockMs:  2000,
-		Rounds:              1,
-		HintDelayMs:         6000,
+		MaxPlayers:             8,
+		DeckSize:               57,
+		WrongClaimPenaltyMs:    1500,
+		WrongClaimPointPenalty: 0,
+		CorrectClaimLockMs:     2000,
+		Rounds:                 1,
+		HintDelayMs:            6000,
 	}
 }
 
 type Player struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Score        int    `json:"score"`
-	SessionScore int    `json:"session_score"`
-	Card         []int  `json:"card"`
-	Muted        bool   `json:"muted"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Score        float64 `json:"score"`
+	SessionScore float64 `json:"session_score"`
+	Card         []int   `json:"card"`
+	Muted        bool    `json:"muted"`
 
-	deck          [][]int
+	deck           [][]int
 	penalizedUntil time.Time
 }
 
 type Room struct {
-	Code             string
-	HostID           string
-	Settings         RoomSettings
-	Players          map[string]*Player
-	Clients          map[string]Client
-	Spectators       map[string]*SpectatorEntry
-	MutedPlayers     map[string]bool
-	State            GameState
-	CenterCard       []int
-	Deck             [][]int
-	CreatedAt        time.Time
-	claimLockedUntil time.Time
-	countdownUntil   time.Time
+	Code              string
+	HostID            string
+	Settings          RoomSettings
+	Players           map[string]*Player
+	Clients           map[string]Client
+	Spectators        map[string]*SpectatorEntry
+	MutedPlayers      map[string]bool
+	State             GameState
+	CenterCard        []int
+	Deck              [][]int
+	CreatedAt         time.Time
+	claimLockedUntil  time.Time
+	countdownUntil    time.Time
 	wrongClaimDelay   time.Duration
 	correctClaimDelay time.Duration
-	LastWinnerID     string
-	LastGamePlayers  []*Player
-	CurrentRound     int
-	mu               sync.RWMutex
+	LastWinnerID      string
+	LastGamePlayers   []*Player
+	CurrentRound      int
+	mu                sync.RWMutex
 }
 
 func NewRoom(code, hostID, hostName string) *Room {
 	r := &Room{
-		Code:       code,
-		HostID:     hostID,
-		Settings:   defaultRoomSettings(),
+		Code:         code,
+		HostID:       hostID,
+		Settings:     defaultRoomSettings(),
 		Players:      make(map[string]*Player),
 		Clients:      make(map[string]Client),
 		Spectators:   make(map[string]*SpectatorEntry),
 		MutedPlayers: make(map[string]bool),
-		State:      StateWaiting,
-		CreatedAt:  time.Now(),
+		State:        StateWaiting,
+		CreatedAt:    time.Now(),
 	}
 	r.Players[hostID] = &Player{
 		ID:   hostID,
@@ -172,6 +174,12 @@ func (r *Room) UpdateSettings(s RoomSettings) RoomSettings {
 	}
 	if s.WrongClaimPenaltyMs > 10000 {
 		s.WrongClaimPenaltyMs = 10000
+	}
+	if s.WrongClaimPointPenalty < 0 {
+		s.WrongClaimPointPenalty = 0
+	}
+	if s.WrongClaimPointPenalty > 5 {
+		s.WrongClaimPointPenalty = 5
 	}
 	if s.CorrectClaimLockMs < 0 {
 		s.CorrectClaimLockMs = 0
@@ -403,7 +411,17 @@ func (r *Room) Claim(playerID string, symbol int) ClaimResult {
 	match := FindMatch(p.Card, r.CenterCard)
 	if match != symbol {
 		p.penalizedUntil = now.Add(r.wrongClaimDelay)
-		return ClaimResult{Correct: false}
+		if r.Settings.WrongClaimPointPenalty > 0 {
+			p.Score -= r.Settings.WrongClaimPointPenalty
+			if p.Score < 0 {
+				p.Score = 0
+			}
+		}
+		players := make([]*Player, 0, len(r.Players))
+		for _, pl := range r.Players {
+			players = append(players, pl)
+		}
+		return ClaimResult{Correct: false, Players: players}
 	}
 
 	// Correct claim — lock the room for all players during the transition
@@ -500,7 +518,7 @@ func (r *Room) ResetSession() error {
 // Caller must hold at least a read lock.
 func (r *Room) SessionWinnerID() string {
 	var winnerID string
-	maxScore := -1
+	maxScore := -1.0
 	for id, p := range r.Players {
 		total := p.SessionScore + p.Score
 		if total > maxScore {
@@ -536,7 +554,7 @@ func (r *Room) resetLocked() {
 // findWinner returns the player ID with the highest score. Must be called with lock held.
 func (r *Room) findWinner() string {
 	var winnerID string
-	maxScore := -1
+	maxScore := -1.0
 	for id, p := range r.Players {
 		if p.Score > maxScore {
 			maxScore = p.Score
