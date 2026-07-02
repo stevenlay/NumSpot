@@ -621,6 +621,7 @@ func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface
 	wrongPointPenalty, _ := payload["wrong_claim_point_penalty"].(float64)
 	correctMs, _ := payload["correct_claim_lock_ms"].(float64)
 	rounds, _ := payload["rounds"].(float64)
+	hintMs, _ := payload["hint_delay_ms"].(float64)
 
 	clamped := room.UpdateSettings(game.RoomSettings{
 		MaxPlayers:             int(maxPlayers),
@@ -629,6 +630,7 @@ func (h *Handler) handleUpdateSettings(c *WSClient, payload map[string]interface
 		WrongClaimPointPenalty: wrongPointPenalty,
 		CorrectClaimLockMs:     int(correctMs),
 		Rounds:                 int(rounds),
+		HintDelayMs:            int(hintMs),
 	})
 
 	h.broadcast(c.RoomCode, OutboundMessage{

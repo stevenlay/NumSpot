@@ -331,11 +331,13 @@ func TestUpdateSettings_HappyPath(t *testing.T) {
 		"deck_size":              30,
 		"wrong_claim_penalty_ms": 0,
 		"correct_claim_lock_ms":  0,
+		"hint_delay_ms":          3000,
 	})
 
 	var s struct {
-		MaxPlayers int `json:"max_players"`
-		DeckSize   int `json:"deck_size"`
+		MaxPlayers  int `json:"max_players"`
+		DeckSize    int `json:"deck_size"`
+		HintDelayMs int `json:"hint_delay_ms"`
 	}
 	json.Unmarshal(readUntil(t, host, MsgSettingsUpdated), &s)
 	if s.MaxPlayers != 3 {
@@ -343,6 +345,9 @@ func TestUpdateSettings_HappyPath(t *testing.T) {
 	}
 	if s.DeckSize != 30 {
 		t.Errorf("deck_size = %d, want 30", s.DeckSize)
+	}
+	if s.HintDelayMs != 3000 {
+		t.Errorf("hint_delay_ms = %d, want 3000", s.HintDelayMs)
 	}
 	readUntil(t, guest, MsgSettingsUpdated) // guest also receives the broadcast
 }
